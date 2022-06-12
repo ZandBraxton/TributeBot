@@ -1,0 +1,28 @@
+{
+  "name": "tributebot",
+  "version": "1.0.0",
+  "description": "a hunger games simulation for discord",
+  "main": "bot.js",
+  "nodemonConfig": {
+    "ignore": [
+      "game.json"
+    ]
+  },
+  "scripts": {
+    "start": "node bot.js",
+    "devStart": "nodemon bot.js",
+    "testStart": "node devBot.js",
+    "testDevStart": "nodemon devBot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Braxton Zand",
+  "license": "ISC",
+  "dependencies": {
+    "@discordjs/builders": "^0.13.0",
+    "@discordjs/rest": "^0.4.1",
+    "discord.js": "^13.6.0",
+    "dotenv": "^16.0.0",
+    "nodemon": "^2.0.15",
+    "pg": "^8.7.3"
+  }
+}
