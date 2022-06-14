@@ -4,13 +4,10 @@ const fs = require("fs");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("add")
-    .setDescription("(Mickey Masters Only) Add a user to the list of tributes")
-    .addUserOption((option) =>
-      option.setName("target").setDescription("Select a user")
-    ),
+    .setName("join-tribute")
+    .setDescription("Volunteer as tribute for the Mickey Games"),
   async execute(interaction) {
-    const user = interaction.options.getUser("target");
+    const user = interaction.user;
     console.log(user);
     fs.readFile("tributes.json", "utf-8", function (err, data) {
       if (err) {
@@ -19,7 +16,7 @@ module.exports = {
         players = JSON.parse(data);
         let found = players.find((p) => p.id === user.id);
         if (found !== undefined) {
-          return interaction.reply("This user has already been added!");
+          return interaction.reply("You have already joined!");
         }
         players.push({
           id: user.id,

@@ -4,13 +4,10 @@ const fs = require("fs");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("remove")
-    .setDescription("(Mickey Masters Only) Add a user to the list of tributes")
-    .addUserOption((option) =>
-      option.setName("target").setDescription("Select a user")
-    ),
+    .setName("leave-tribute")
+    .setDescription("Leave the Mickey Games"),
   async execute(interaction) {
-    const user = interaction.options.getUser("target");
+    const user = interaction.user;
     console.log(user);
     fs.readFile("tributes.json", "utf-8", function (err, data) {
       if (err) {
@@ -26,7 +23,7 @@ module.exports = {
             // console.log(JSON.parse(fs.readFileSync("game.json", "utf-8")));
           }
         });
-        interaction.reply(`Removed ${user.username} from the tributes!`);
+        interaction.reply(`You have left the tributes!`);
       }
     });
   },

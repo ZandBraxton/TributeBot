@@ -3,139 +3,169 @@
     "id": "307679791337963520",
     "username": "Bubbles",
     "avatar": "https://cdn.discordapp.com/avatars/307679791337963520/e8f677b8611ac3e3afc2a77b54a29e7d.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 1
   },
   {
     "id": "336304078223310860",
     "username": "Lilnuggie",
     "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 1
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 2
   },
   {
     "id": "307679791337963520",
     "username": "Bubbles",
     "avatar": "https://cdn.discordapp.com/avatars/307679791337963520/e8f677b8611ac3e3afc2a77b54a29e7d.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 2
   },
   {
     "id": "336304078223310860",
     "username": "Lilnuggie",
     "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 3
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 3
   },
 
   {
     "id": "307679791337963520",
     "username": "Bubbles",
     "avatar": "https://cdn.discordapp.com/avatars/307679791337963520/e8f677b8611ac3e3afc2a77b54a29e7d.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 4
   },
   {
     "id": "336304078223310860",
     "username": "Lilnuggie",
     "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 4
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 5
   },
   {
     "id": "307679791337963520",
     "username": "Bubbles",
     "avatar": "https://cdn.discordapp.com/avatars/307679791337963520/e8f677b8611ac3e3afc2a77b54a29e7d.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 5
   },
   {
     "id": "336304078223310860",
     "username": "Lilnuggie",
     "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 6
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 6
   },
   {
     "id": "307679791337963520",
     "username": "Bubbles",
     "avatar": "https://cdn.discordapp.com/avatars/307679791337963520/e8f677b8611ac3e3afc2a77b54a29e7d.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 7
   },
   {
     "id": "336304078223310860",
     "username": "Lilnuggie",
     "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 7
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 8
   },
   {
     "id": "307679791337963520",
     "username": "Bubbles",
     "avatar": "https://cdn.discordapp.com/avatars/307679791337963520/e8f677b8611ac3e3afc2a77b54a29e7d.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 8
   },
   {
     "id": "336304078223310860",
     "username": "Lilnuggie",
     "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 9
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 9
   },
   {
     "id": "307679791337963520",
     "username": "Bubbles",
     "avatar": "https://cdn.discordapp.com/avatars/307679791337963520/e8f677b8611ac3e3afc2a77b54a29e7d.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 10
   },
   {
     "id": "336304078223310860",
     "username": "Lilnuggie",
     "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 10
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 11
   },
   {
     "id": "958409229906083930",
     "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 11
   },
   {
     "id": "958409229906083930",
-    "username": "Tron",
+    "username": "Scambot",
     "avatar": "https://cdn.discordapp.com/avatars/958409229906083930/89caa761159e685278302a22e0cd011f.jpeg",
-    "status": "Alive"
+    "alive": true,
+    "district": 12
+  },
+  {
+    "id": "336304078223310860",
+    "username": "Lilnuggie",
+    "avatar": "https://cdn.discordapp.com/avatars/336304078223310860/35171696328ce74914f3f5d90b800e74.jpeg",
+    "alive": true,
+    "district": 12
   }
 ]

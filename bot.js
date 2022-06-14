@@ -11,6 +11,7 @@ const client = new Client({
   ],
 });
 const db = require("./database");
+const canvasHelper = require("./helpers/canvas");
 require("dotenv").config();
 
 client.on("ready", () => {
@@ -18,6 +19,14 @@ client.on("ready", () => {
 
   console.log("ready!");
 });
+
+let permissionCommands = [
+  "mickey-games",
+  "quick-add",
+  "add",
+  "remove",
+  "shuffle",
+];
 
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, "commands");
@@ -37,11 +46,24 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
+  console.log(interaction.user.username);
+
+  if (permissionCommands.includes(command.data.name)) {
+    // if (
+    //   !interaction.member.roles.cache.some(
+    //     (role) => role.name === "Mickey Master"
+    //   )
+    // )
+    if (interaction.user.username !== "Bubbles")
+      return interaction.reply(
+        "You do not have permission to use this command"
+      );
+  }
 
   if (!command) return;
 
   try {
-    await command.execute(interaction, client);
+    await command.execute(interaction, canvasHelper);
   } catch (error) {
     console.error(error);
     await interaction.reply({

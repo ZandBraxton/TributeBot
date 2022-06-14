@@ -20,7 +20,8 @@ for (const file of commandFiles) {
 //   .filter((file) => file.endsWith(".js"));
 
 const clientId = process.env.CLIENT_ID;
-const guildId = process.env.GUILD_ID;
+// const guildId = process.env.GUILD_ID;
+const guildId = process.env.HOOK_GUILD_ID;
 
 // for (const file of commandFiles) {
 //   const command = require(`./commands/${file}`);
