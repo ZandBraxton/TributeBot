@@ -31,7 +31,6 @@ function tributesLeftAlive(tributeData) {
 
 async function generateTributes(players) {
   const embed = new MessageEmbed()
-    .setTitle("Game has been setup!")
     .setImage("attachment://tributesPage.png")
     .setColor("#5d5050");
 

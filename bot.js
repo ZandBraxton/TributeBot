@@ -14,6 +14,7 @@ const db = require("./database");
 const { MongoClient } = require("mongodb");
 const canvasHelper = require("./helpers/canvas");
 require("dotenv").config();
+let betsOpen = false;
 
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 
@@ -43,6 +44,7 @@ let permissionCommands = [
   "add",
   "remove",
   "shuffle",
+  "test",
 ];
 
 client.commands = new Collection();

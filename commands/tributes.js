@@ -1,42 +1,43 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const { MessageEmbed, MessageAttachment } = require("discord.js");
-const fs = require("fs");
-const { createCanvas, loadImage } = require("canvas");
+const { getTributes } = require("../helpers/queries");
 const canvasHelper = require("../helpers/canvas");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("tributes")
     .setDescription("Gets a list of current tributes!"),
-  async execute(interaction, canvasHelper) {
-    fs.readFile("game.json", "utf-8", function (err, data) {
-      if (err) {
-        console.log(err);
-      } else {
-        generateTributes(JSON.parse(data));
-      }
-    });
+  async execute(interaction, db, mongoClient) {
+    const result = await getTributes(
+      mongoClient,
+      interaction,
+      "active-tributes"
+    );
+    if (!result.length) return interaction.reply("There are no tributes");
+    console.log(result[0].tributeData);
 
-    async function generateTributes(players) {
-      const tributeEmbed = new MessageEmbed()
-        .setImage("attachment://tributesPage.png")
-        .setColor("#5d5050");
-
-      const canvas = await canvasHelper.populateCanvas(players);
-
-      const attachment = new MessageAttachment(
-        canvas.toBuffer(),
-        "tributesPage.png"
-      );
-
-      interaction.reply({
-        embeds: [tributeEmbed],
-        files: [attachment],
-        ephemeral: true,
-      });
-    }
+    await generateTributes(result[0].tributeData, interaction);
   },
 };
+
+async function generateTributes(players, interaction) {
+  const tributeEmbed = new MessageEmbed()
+    .setImage("attachment://tributesPage.png")
+    .setColor("#5d5050");
+
+  const canvas = await canvasHelper.populateCanvas(players);
+
+  const attachment = new MessageAttachment(
+    canvas.toBuffer(),
+    "tributesPage.png"
+  );
+
+  await interaction.reply({
+    embeds: [tributeEmbed],
+    files: [attachment],
+    ephemeral: true,
+  });
+}
 
 // async function populateCanvas(canvasHelper, tributeData) {
 //   const verticalAvatarCount = Math.min(tributeData.length, 6);

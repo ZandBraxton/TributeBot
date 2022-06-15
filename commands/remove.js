@@ -1,33 +1,22 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
-const { MessageEmbed } = require("discord.js");
-const fs = require("fs");
+const { deleteUser } = require("../helpers/queries");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("remove")
     .setDescription("(Mickey Masters Only) Add a user to the list of tributes")
     .addUserOption((option) =>
-      option.setName("target").setDescription("Select a user")
+      option.setName("user").setDescription("Select a user")
     ),
-  async execute(interaction) {
-    const user = interaction.options.getUser("target");
-    console.log(user);
-    fs.readFile("tributes.json", "utf-8", function (err, data) {
-      if (err) {
-        console.log(err);
-      } else {
-        players = JSON.parse(data);
-        let newPlayers = players.filter((p) => p.id !== user.id);
-        let json = JSON.stringify(newPlayers);
-        fs.writeFile("tributes.json", json, function (error) {
-          if (error) {
-            console.log("[write auth]:" + error);
-          } else {
-            // console.log(JSON.parse(fs.readFileSync("game.json", "utf-8")));
-          }
-        });
-        interaction.reply(`Removed ${user.username} from the tributes!`);
-      }
-    });
+  async execute(interaction, db, mongoClient) {
+    const user = interaction.options.getUser("user");
+    if (!user) return interaction.reply("You must specify a user!");
+    const result = await deleteUser(mongoClient, interaction, user);
+
+    if (result.deletedCount === 0) {
+      interaction.reply(`${user.username} cannot be found!`);
+    } else {
+      interaction.reply(`${user.username} has left the tributes!`);
+    }
   },
 };
