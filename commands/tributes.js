@@ -32,6 +32,7 @@ module.exports = {
       interaction.reply({
         embeds: [tributeEmbed],
         files: [attachment],
+        ephemeral: true,
       });
     }
   },

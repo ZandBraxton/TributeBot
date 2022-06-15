@@ -11,8 +11,25 @@ const client = new Client({
   ],
 });
 const db = require("./database");
+const { MongoClient } = require("mongodb");
 const canvasHelper = require("./helpers/canvas");
 require("dotenv").config();
+
+const mongoClient = new MongoClient(process.env.MONGO_URI);
+
+// async function run() {
+//   try {
+//     // Connect the client to the server
+//     await mongoClient.connect();
+//     // Establish and verify connection
+//     await mongoClient.db("admin").command({ ping: 1 });
+//     console.log("Connected successfully to server");
+//   } finally {
+//     // Ensures that the client will close when you finish/error
+//     await mongoClient.close();
+//   }
+// }
+// run().catch(console.dir);
 
 client.on("ready", () => {
   const Guilds = client.guilds.cache.map((guild) => guild.id);
@@ -46,7 +63,6 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isCommand()) return;
 
   const command = client.commands.get(interaction.commandName);
-  console.log(interaction.user.username);
 
   if (permissionCommands.includes(command.data.name)) {
     // if (
@@ -63,7 +79,7 @@ client.on("interactionCreate", async (interaction) => {
   if (!command) return;
 
   try {
-    await command.execute(interaction, canvasHelper);
+    await command.execute(interaction, db, mongoClient);
   } catch (error) {
     console.error(error);
     await interaction.reply({

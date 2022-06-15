@@ -6,6 +6,7 @@ const avatarPaddingX = 50;
 const avatarPaddingY = 230;
 const avatarSpacingX = 30;
 const avatarSpacingY = 130;
+const reBrackets = /\(([^)]+)\)/;
 
 function drawBackground(ctx, bgColor) {
   ctx.fillStyle = bgColor;
@@ -62,7 +63,7 @@ async function populateCanvas(tributeData) {
   const ctx = canvas.getContext("2d");
 
   drawBackground(ctx, "#5d5050");
-  drawHeaderText(ctx, ["The Reaping"]);
+  drawHeaderText(ctx, ["The Reaping"], "tributes");
   await generateStatusImage(ctx, tributeData);
 
   return canvas;
@@ -101,6 +102,7 @@ async function generateStatusImage(ctx, tributeData) {
   drawTributeName(ctx, tributeData);
   drawAliveText(ctx, tributeData);
   drawDistrictText(ctx, tributeData);
+  drawKillsText(ctx, tributeData);
 }
 
 async function generateEventImage(eventText, resultsText, avatarArray) {
@@ -110,36 +112,33 @@ async function generateEventImage(eventText, resultsText, avatarArray) {
 
   ctx.font = "35px arial";
 
+  let bracketOffset =
+    resultsText.split("(").length - 1 + (resultsText.split(")").length - 1);
+
   const canvasWidth = Math.max(
-    ctx.measureText(resultsText).width + 100,
+    ctx.measureText(resultsText).width + 100 - bracketOffset * 12,
     ctx.measureText("The Mickey Games").width + 100
   );
+
   ctx.canvas.width = canvasWidth;
 
   drawBackground(ctx, "#5d5050");
-  drawHeaderText(ctx, [resultsText, eventText]);
+  drawHeaderText(ctx, [eventText, resultsText], "event");
 
   ctx.strokeStyle = "#000000";
   ctx.fillStyle = "#ffffff";
 
-  const avatarYPosition = canvasHeight / 2 + 10;
-  let avatarXPosition = canvasWidth / 2 - halfAvatar;
-  avatarXPosition -=
-    (avatarSpacingX / 2 + halfAvatar) * (avatarArray.length - 1);
+  const avatarYPosition = canvasHeight / 2 + -150;
+  let avatarXPosition = canvasWidth / 2 - 125;
+  avatarXPosition -= (avatarSpacingX / 2 + 125) * (avatarArray.length - 1);
 
   for (let i = 0; i < avatarArray.length; i++) {
     const tributeImage = await loadImage(avatarArray[i]);
 
-    ctx.drawImage(
-      tributeImage,
-      avatarXPosition,
-      avatarYPosition,
-      avatarSize,
-      avatarSize
-    );
-    ctx.strokeRect(avatarXPosition, avatarYPosition, avatarSize, avatarSize);
+    ctx.drawImage(tributeImage, avatarXPosition, avatarYPosition, 250, 250);
+    ctx.strokeRect(avatarXPosition, avatarYPosition, 250, 250);
 
-    avatarXPosition += avatarSpacingX + avatarSize;
+    avatarXPosition += avatarSpacingX + 250;
   }
 
   return canvas;
@@ -162,14 +161,18 @@ async function generateFallenTributes(deaths, announcementCount, deathMessage) {
 
   ctx.canvas.width = canvasWidth;
   drawBackground(ctx, "#5d5050");
-  drawHeaderText(ctx, [deathMessage, `Fallen Tributes ${announcementCount}`]);
+  drawHeaderText(
+    ctx,
+    [deathMessage, `Fallen Tributes ${announcementCount}`],
+    "dead"
+  );
 
   ctx.font = "bold 20px arial";
   ctx.fillStyle = "#ffffff";
   ctx.strokeStyle = "#000000";
   ctx.textAlign = "center";
 
-  const avatarYPosition = canvasHeight / 2 + 10;
+  const avatarYPosition = canvasHeight / 2 + -30;
   let avatarXPosition = canvasWidth / 2 - halfAvatar;
   const textYPosition = avatarYPosition + avatarSize + 10;
 
@@ -218,19 +221,29 @@ async function generateWinnerImage(tributeData) {
   drawBackground(ctx, "#5d5050");
 
   if (tributeData.length === 1) {
-    drawHeaderText(ctx, ["The Winner"]);
+    drawHeaderText(
+      ctx,
+      ["The Winner", `District ${tributeData[0].district}`],
+      "win"
+    );
   } else {
-    drawHeaderText(ctx, ["The Winners"]);
+    drawHeaderText(
+      ctx,
+      ["The Winners", `District ${tributeData[0].district}`],
+      "win"
+    );
   }
 
   ctx.strokeStyle = "#000000";
 
-  const avatarYPosition = canvasHeight / 2;
+  const avatarYPosition = canvasHeight / 2 - 30;
   let avatarXPosition = canvasWidth / 2 - halfAvatar;
   avatarXPosition -= (avatarSpacingX + halfAvatar) * (tributeData.length - 1);
+  const textYPosition = avatarYPosition + avatarSize + 10;
 
   for (let i = 0; i < tributeData.length; i++) {
     const tributeImage = await loadImage(tributeData[i].avatar);
+    const textXPosition = avatarXPosition + halfAvatar;
 
     ctx.drawImage(
       tributeImage,
@@ -240,6 +253,22 @@ async function generateWinnerImage(tributeData) {
       avatarSize
     );
     ctx.strokeRect(avatarXPosition, avatarYPosition, avatarSize, avatarSize);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 20px arial";
+
+    ctx.fillText(
+      `${tributeData[i].username.slice(0, 10)}`,
+      textXPosition,
+      textYPosition
+    );
+
+    ctx.fillText(
+      tributeData[i].kills === 1
+        ? `${tributeData[i].kills} Kill`
+        : `${tributeData[i].kills} Kills`,
+      textXPosition,
+      textYPosition + 30
+    );
 
     avatarXPosition += avatarSpacingX + avatarSize;
   }
@@ -247,8 +276,11 @@ async function generateWinnerImage(tributeData) {
   return canvas;
 }
 
-function drawHeaderText(ctx, textArray) {
-  const text = ["The Mickey Games", ...textArray];
+function drawHeaderText(ctx, textArray, type) {
+  let text = [...textArray];
+  if (type === "tributes") {
+    text = ["The Mickey Games", ...textArray];
+  }
 
   ctx.textBaseline = "top";
   ctx.font = "35px arial";
@@ -263,15 +295,78 @@ function drawHeaderText(ctx, textArray) {
       ctx.canvas.width / 2 - textMeasure.actualBoundingBoxLeft - 5;
     const textWidth = textMeasure.width + 10;
 
-    ctx.fillStyle = "#232323";
-    ctx.fillRect(textCenterAlignment, textPaddingY, textWidth, ySizing);
+    if (type === "event") {
+      let arr = text[i].split(/(?!\(.*)\s(?![^(]*?\))/g);
+      let args = [];
+      arr.map((word) => {
+        let check = reBrackets.exec(word);
+        if (check) {
+          if (word.substring(word.length - 2) === "'s") {
+            check[1] += "'s";
+          }
+          let punc = word.substring(word.length - 1);
+          if (punc === "," || punc === ".") {
+            check[1] += punc;
+          }
+          args.push({
+            text: check[1],
+            fillStyle: "#e4ae24",
+          });
+        } else {
+          args.push({
+            text: word,
+          });
+        }
+      });
+      if (i === 0) {
+        //the black bg
+        ctx.fillStyle = "#232323";
+        ctx.fillRect(textCenterAlignment, 30, textWidth, ySizing);
 
-    ctx.strokeStyle = "#ffffff";
-    ctx.strokeRect(textCenterAlignment, textPaddingY, textWidth, ySizing);
+        // this is the white border
+        ctx.strokeStyle = "#ffffff";
+        ctx.strokeRect(textCenterAlignment, 30, textWidth, ySizing);
 
-    ctx.fillStyle = "#e4ae24";
-    ctx.fillText(text[i], ctx.canvas.width / 2, textPaddingY);
-    textPaddingY += 70;
+        ctx.fillStyle = "#e4ae24";
+        ctx.fillText(text[i], ctx.canvas.width / 2, 30);
+      } else {
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "35px arial";
+        ctx.textAlign = "left";
+        fillMixedText(ctx, args, 50, 400);
+
+        // ctx.fillStyle = "#ffffff";
+        // ctx.fillText(text[i], ctx.canvas.width / 2, 400);
+      }
+    } else if (type === "win") {
+      if (i === 2) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(text[i], ctx.canvas.width / 2, 400);
+      } else {
+        ctx.fillStyle = "#232323";
+        ctx.fillRect(textCenterAlignment, textPaddingY, textWidth, ySizing);
+
+        // this is the white border
+        ctx.strokeStyle = "#ffffff";
+        ctx.strokeRect(textCenterAlignment, textPaddingY, textWidth, ySizing);
+
+        ctx.fillStyle = "#e4ae24";
+        ctx.fillText(text[i], ctx.canvas.width / 2, textPaddingY);
+        textPaddingY += 70;
+      }
+    } else {
+      // this is the black background
+      ctx.fillStyle = "#232323";
+      ctx.fillRect(textCenterAlignment, textPaddingY, textWidth, ySizing);
+
+      // this is the white border
+      ctx.strokeStyle = "#ffffff";
+      ctx.strokeRect(textCenterAlignment, textPaddingY, textWidth, ySizing);
+
+      ctx.fillStyle = "#e4ae24";
+      ctx.fillText(text[i], ctx.canvas.width / 2, textPaddingY);
+      textPaddingY += 70;
+    }
   }
 }
 
@@ -346,6 +441,45 @@ function drawAliveText(ctx, tributeArray) {
   }
 }
 
+function drawKillsText(ctx, tributeArray) {
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 20px arial";
+  ctx.textAlign = "center";
+
+  let textDestinationX = avatarPaddingX + halfAvatar;
+  let textDestinationY = avatarPaddingY + avatarSize + 60;
+
+  for (let i = 0; i < tributeArray.length; i++) {
+    if (tributeArray[i].kills !== 0) {
+      ctx.fillText(
+        tributeArray[i].kills === 1
+          ? `${tributeArray[i].kills} Kill`
+          : `${tributeArray[i].kills} Kills`,
+        textDestinationX,
+        textDestinationY
+      );
+
+      const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+      textDestinationX += avatarSize + avatarSpacingX * spacingMultiplier;
+
+      if ((i + 1) % 6 === 0) {
+        textDestinationX = avatarPaddingX + halfAvatar;
+        textDestinationY += avatarSize + avatarSpacingY;
+      }
+    } else {
+      ctx.fillText("", textDestinationX, textDestinationY);
+
+      const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+      textDestinationX += avatarSize + avatarSpacingX * spacingMultiplier;
+
+      if ((i + 1) % 6 === 0) {
+        textDestinationX = avatarPaddingX + halfAvatar;
+        textDestinationY += avatarSize + avatarSpacingY;
+      }
+    }
+  }
+}
+
 function drawTributeName(ctx, tributeArray) {
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 20px arial";
@@ -370,6 +504,21 @@ function drawTributeName(ctx, tributeArray) {
     }
   }
 }
+
+const fillMixedText = (ctx, args, x, y) => {
+  let defaultFillStyle = ctx.fillStyle;
+  let defaultFont = ctx.font;
+
+  ctx.save();
+  args.forEach(({ text, fillStyle, font }) => {
+    ctx.fillStyle = fillStyle || defaultFillStyle;
+    ctx.font = font || defaultFont;
+    ctx.fillText(text, x, y);
+    x += ctx.measureText(text).width + 10;
+  });
+
+  ctx.restore();
+};
 
 module.exports = {
   drawBackground,

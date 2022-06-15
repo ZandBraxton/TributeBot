@@ -6,9 +6,8 @@ const {
   MessageButton,
   createMessageComponentCollector,
 } = require("discord.js");
+const { v4: uuidv4 } = require("uuid");
 const canvasHelper = require("../helpers/canvas");
-
-const fs = require("fs");
 
 function shuffle(array) {
   let currentIndex = array.length,
@@ -26,22 +25,9 @@ function shuffle(array) {
   return array;
 }
 
-function gameOver(tributeData) {
-  const tributesLeftAlive = tributesLeftAlive(tributeData);
-
-  if (tributesLeftAlive.length === 2)
-    return tributesLeftAlive[0].district === tributesLeftAlive[1].district;
-  else if (tributesLeftAlive.length === 1) return true;
-  else return false;
-}
-
 function tributesLeftAlive(tributeData) {
   return tributeData.filter((tribute) => tribute.alive);
 }
-
-// async function startGame() {
-//   fs;
-// }
 
 async function generateTributes(players) {
   const embed = new MessageEmbed()
@@ -56,19 +42,29 @@ async function generateTributes(players) {
     "tributesPage.png"
   );
 
-  const row = new MessageActionRow()
+  const uniqueId = uuidv4();
+
+  let row = new MessageActionRow()
+
     .addComponents(
       new MessageButton()
-        .setCustomId("random")
+        .setCustomId("end" + uniqueId)
+        .setLabel("End Game")
+        .setStyle("DANGER")
+    )
+    .addComponents(
+      new MessageButton()
+        .setCustomId("random" + uniqueId)
         .setLabel("Randomize Districts")
         .setStyle("PRIMARY")
     )
     .addComponents(
       new MessageButton()
-        .setCustomId("start")
+        .setCustomId("start" + uniqueId)
         .setLabel("Start")
         .setStyle("SUCCESS")
     );
+
   return { embed, attachment, row };
 }
 
@@ -122,7 +118,6 @@ function eventTrigger(
         if (event.killers.includes(i)) randomTribute.kills++;
 
         if (event.deaths.includes(i)) {
-          tribute.kills++;
           randomTribute.alive = false;
           deaths.push(randomTribute);
           tributes.delete(randomTribute);
@@ -140,8 +135,8 @@ function eventTrigger(
 
   function parseEvent(text, tributes, ID) {
     for (let i = 0; i < tributes.length; i++) {
-      const idOrName = ID ? `<${tributes[i].id}>` : tributes[i].username;
-      text = text.replaceAll(`(Player${i + 1})`, `${idOrName}`);
+      const idOrName = ID ? `<@${tributes[i].id}>` : tributes[i].username;
+      text = text.replaceAll(`(Player${i + 1})`, `(${idOrName})`);
     }
 
     return text;
@@ -154,7 +149,6 @@ async function sleep(ms) {
 module.exports = {
   shuffle,
   tributesLeftAlive,
-  gameOver,
   generateTributes,
   eventTrigger,
   sleep,

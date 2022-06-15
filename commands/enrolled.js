@@ -13,8 +13,6 @@ module.exports = {
       } else {
         players = JSON.parse(data);
         let p = players.map((p) => p.username);
-        console.log(p.join(", "));
-        // interaction.reply(`Added ${user.username} to the tributes!`);
         const enrolled = new MessageEmbed()
           .setColor("#0099ff")
           .setTitle("Added Players")
@@ -22,18 +20,9 @@ module.exports = {
             name: "Players",
             value: p.join(", "),
           });
-
-        console.log(players.map((p) => p.username).toString());
-
-        // for (const p of players) {
-        //     enrolled.addFields({
-        //         name: "Players",
-        //         value:
-        //     });
-        // }
-
         interaction.reply({
           embeds: [enrolled],
+          ephemeral: true,
         });
       }
     });
