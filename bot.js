@@ -13,8 +13,17 @@ const client = new Client({
 const db = require("./database");
 const { MongoClient } = require("mongodb");
 const canvasHelper = require("./helpers/canvas");
+const { activateBets, getBets } = require("./helpers/queries");
+const bet = require("./commands/bet");
 require("dotenv").config();
 let betsOpen = false;
+let bets = [];
+let pool = [];
+// let bets = [
+//   { district: "1", amount: 1265, username: "Bubbles" },
+//   { district: "1", amount: 400, username: "Tron Maker" },
+//   { district: "2", amount: 2, username: "Kaio" },
+// ];
 
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 
@@ -62,9 +71,85 @@ for (const file of commandFiles) {
 }
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isCommand()) return;
+  console.log(pool);
+  console.log(bets);
+  // console.log(interaction);
+  if (!interaction.isCommand()) {
+    // if (interaction.customId.substring(0, 3) === "bet") {
+    //   let data = JSON.parse(interaction.values[0]);
+    //   let found = bets.find((element) => element.username === data.username);
+    //   if (found !== undefined) return;
+    //   pool += data.betAmount;
+    //   bets.push({
+    //     district: data.district,
+    //     amount: data.betAmount,
+    //     username: data.username,
+    //   });
+
+    //   console.log(
+    //     `${data.username} has bet ${data.betAmount} on District ${data.district}, the total pool is now ${pool}.`
+    //   );
+    //   interaction.channel.send(".");
+    // }
+
+    console.log("here");
+    if (interaction.customId.substring(0, 5) === "start") {
+      betsOpen = false;
+      let result = await getBets(mongoClient, interaction);
+      let pot = 0;
+      console.log(result.bets);
+      await bets.map((bet) => {
+        pot += bet.amount;
+        result.bets[bet.district].total += bet.amount;
+        result.bets[bet.district].users.push({
+          username: bet.username,
+          amount: bet.amount,
+        });
+        console.log(result.bets[1].users);
+        console.log(pot);
+      });
+
+      await activateBets(mongoClient, interaction, {
+        guild: interaction.guild.id,
+        bets: result.bets,
+        pot: pot,
+      });
+      bets = [];
+      pool = 0;
+    }
+    return;
+  }
+  console.log("not here");
 
   const command = client.commands.get(interaction.commandName);
+
+  // console.log(command.data);
+  // console.log(interaction.customId);
+
+  if (command.data.name === "mickey-games") betsOpen = true;
+
+  if (
+    command.data.name === "bet" ||
+    command.data.name === "withdraw" ||
+    command.data.name === "pool"
+  ) {
+    if (betsOpen === false)
+      return interaction.channel.send("Bets are currently closed!");
+    // return interaction.reply({
+    //   content: "Bets are currently closed!",
+    //   ephemeral: true,
+    // });
+    try {
+      await command.execute(interaction, db, mongoClient, bets, pool);
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({
+        content: "There was an error while executing this command!",
+        ephemeral: true,
+      });
+    }
+    return;
+  }
 
   if (permissionCommands.includes(command.data.name)) {
     // if (
@@ -90,8 +175,6 @@ client.on("interactionCreate", async (interaction) => {
     });
   }
 });
-
-currentPlayers = [];
 
 // discordClient.on("messageCreate", async (message) => {
 //   if (message.author.bot) return;

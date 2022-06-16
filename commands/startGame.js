@@ -7,10 +7,11 @@ const {
   MessageButton,
 } = require("discord.js");
 const game = require("../helpers/game");
-const { activateTribute, getTributes } = require("../helpers/queries");
+const { activateTribute, getTributes, payout } = require("../helpers/queries");
 const canvasHelper = require("../helpers/canvas");
 const { bloodbath, day, night } = require("../events.json");
 const { v4: uuidv4 } = require("uuid");
+const db = require("../database");
 let running = false;
 
 module.exports = {
@@ -31,6 +32,7 @@ module.exports = {
     let gameData = [];
 
     await setupGame(data, interaction, true, mongoClient, tributes, gameData);
+    await interaction.reply("Setting up game...");
   },
 };
 
@@ -61,7 +63,10 @@ async function setupGame(
   });
 
   let n = 0;
-
+  let districtN = 2;
+  let districtCount;
+  console.log(data.length);
+  console.log(districtN);
   for (let i = 0; i < data.length; i++) {
     n++;
     tributes.push({
@@ -70,13 +75,20 @@ async function setupGame(
       avatar: data[i].avatar,
       alive: true,
       kills: 0,
-      district: data.length === 2 ? n + 1 : Math.ceil(n / 2),
+      district: data.length === districtN ? i + 1 : Math.ceil(n / districtN),
     });
+    // console.log(n + " " + districtN);
+    districtCount =
+      data.length === districtN ? i + 1 : Math.ceil(n / districtN);
   }
+  console.log(districtCount);
 
   await activateTribute(mongoClient, interaction, {
     guild: interaction.guild.id,
     tributeData: tributes,
+    districtCount: districtCount,
+    bets: [],
+    pool: 0,
   });
 
   const embedData = await game.generateTributes(tributes);
@@ -86,9 +98,13 @@ async function setupGame(
       files: [embedData.attachment],
       components: [embedData.row],
     });
+
+    await interaction.channel.send("Bets are now open!");
     const filter = (i) => {
       i.deferUpdate();
-      return i.user.id === interaction.user.id;
+      return (
+        i.user.id === interaction.user.id && i.componentType !== "SELECT_MENU"
+      );
     };
 
     const collector = await interaction.channel.createMessageComponentCollector(
@@ -448,6 +464,10 @@ async function showFallenTributes(
         embeds: [winnerEmbed],
         files: [winAttachment],
       });
+
+      // await payout(mongoClient, interaction, db, tributesLeft[0].district);
+
+      await payout(mongoClient, interaction, db, 2);
 
       running = false;
       collector.stop("game over");
