@@ -1,9 +1,9 @@
-async function createUser(client, interaction, user) {
+async function createUser(client, interaction, collection, user) {
   await client.connect();
 
   const result = await client
     .db("hunger-games")
-    .collection("tributes")
+    .collection(collection)
     .updateOne(
       {
         guild: interaction.guild.id,
@@ -13,8 +13,12 @@ async function createUser(client, interaction, user) {
         $set: {
           id: user.id,
           username: user.username,
-          avatar: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`,
+          avatar:
+            collection === "cpu-tributes"
+              ? user.avatar
+              : `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`,
           guild: interaction.guild.id,
+          active: true,
         },
       },
       { upsert: true }
@@ -70,21 +74,41 @@ async function activateTribute(client, interaction, dataSet) {
   return result;
 }
 
+async function activateCPU(client, interaction, cpuName) {
+  await client.connect();
+
+  const cpu = await client
+    .db("hunger-games")
+    .collection("cpu-tributes")
+    .findOne({
+      guild: interaction.guild.id,
+      username: cpuName,
+    });
+  let status = !cpu.active;
+
+  await client
+    .db("hunger-games")
+    .collection("cpu-tributes")
+    .updateOne(
+      {
+        guild: interaction.guild.id,
+        username: cpuName,
+      },
+      {
+        $set: {
+          active: status,
+        },
+      },
+      { upsert: true }
+    );
+
+  return status;
+}
+
 async function payout(client, interaction, db, winningDistrict) {
   await client.connect();
   const result = await getBets(client, interaction);
 
-  //   let bets = [
-  //     { district: 1, amount: 50, username: "Bubbles" },
-  //     { district: 1, amount: 60, username: "Tron Maker" },
-  //     { district: 2, amount: 150, username: "EXSeraph" },
-  //     { district: 4, amount: 50, username: "Lilnuggie" },
-  //     { district: 4, amount: 50, username: "Nakkiel" },
-  //     { district: 2, amount: 100, username: "Kunai" },
-  //     { district: 1, amount: 50, username: "quzel" },
-  //   ];
-
-  //   let pool = 510;
   let bets = result.bets;
   let pool = result.pool;
 
@@ -144,17 +168,17 @@ async function payout(client, interaction, db, winningDistrict) {
     );
 
     interaction.channel.send(
-      `${winnerScore.username} won ${prize} points! They now have ${winnerScore.points}`
+      `${winnerScore.username} won ${prize} points! They now have ${winnerScore.points} points`
     );
   }
 }
 
-async function deleteUser(client, interaction, user) {
+async function deleteUser(client, interaction, collection, user) {
   await client.connect();
 
   const result = await client
     .db("hunger-games")
-    .collection("tributes")
+    .collection(collection)
     .deleteOne({
       guild: interaction.guild.id,
       username: user.username,
@@ -184,5 +208,6 @@ module.exports = {
   getBets,
   activateTribute,
   activateBets,
+  activateCPU,
   payout,
 };

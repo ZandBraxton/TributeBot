@@ -4,7 +4,6 @@ const {
   MessageActionRow,
   MessageAttachment,
   MessageButton,
-  createMessageComponentCollector,
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
 const canvasHelper = require("../helpers/canvas");
@@ -29,12 +28,12 @@ function tributesLeftAlive(tributeData) {
   return tributeData.filter((tribute) => tribute.alive);
 }
 
-async function generateTributes(players) {
+async function generateTributes(players, districtSize) {
   const embed = new MessageEmbed()
     .setImage("attachment://tributesPage.png")
     .setColor("#5d5050");
 
-  const canvas = await canvasHelper.populateCanvas(players);
+  const canvas = await canvasHelper.populateCanvas(players, districtSize);
 
   const attachment = new MessageAttachment(
     canvas.toBuffer(),
@@ -64,7 +63,29 @@ async function generateTributes(players) {
         .setStyle("SUCCESS")
     );
 
-  return { embed, attachment, row };
+  let districtSizeRow = new MessageActionRow().addComponents(
+    new MessageSelectMenu()
+      .setCustomId("random" + uuidv4())
+      .setPlaceholder("District Size")
+      .addOptions([
+        {
+          label: "Two",
+          value: "2",
+        },
+        {
+          label: "Three",
+          value: "3",
+        },
+        {
+          label: "Four",
+          value: "4",
+        },
+      ])
+  );
+
+  let components = [row, districtSizeRow];
+
+  return { embed, attachment, components };
 }
 
 function eventTrigger(

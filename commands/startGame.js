@@ -1,38 +1,90 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
 const {
   MessageEmbed,
-  MessageSelectMenu,
   MessageActionRow,
   MessageAttachment,
   MessageButton,
 } = require("discord.js");
 const game = require("../helpers/game");
-const { activateTribute, getTributes, payout } = require("../helpers/queries");
+const {
+  activateTribute,
+  activateBets,
+  getTributes,
+  payout,
+} = require("../helpers/queries");
 const canvasHelper = require("../helpers/canvas");
 const { bloodbath, day, night } = require("../events.json");
 const { v4: uuidv4 } = require("uuid");
 const db = require("../database");
+let districtSize;
 let running = false;
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("mickey-games")
-    .setDescription("(Mickey Masters Only) Set's up a new Mickey Games!"),
-  async execute(interaction, db, mongoClient) {
-    if (running === true) {
-      interaction.reply("The game is currently running");
-      return;
-    }
-    running = true;
+    .setDescription("(Mickey Masters Only) Set's up a new Mickey Games!")
+    .addIntegerOption((option) =>
+      option
+        .setName("district-size")
+        .setDescription("Select the size of the districts (Default is 2)")
+        .addChoices(
+          { name: "2", value: 2 },
+          { name: "3", value: 3 },
+          { name: "4", value: 4 }
+        )
+    ),
+  async execute(interaction, db, mongoClient, setComponentActive, setBetsOpen) {
+    districtSize = await interaction.options.getInteger("district-size");
+    if (!districtSize) districtSize = 2;
 
     let data = await getTributes(mongoClient, interaction, "tributes");
-    if (!data) return interaction.reply("Error setting up game!");
+
+    let CPUdata = await getTributes(mongoClient, interaction, "cpu-tributes");
+    await CPUdata.map((cpu) => {
+      if (cpu.active === true) {
+        data.push(cpu);
+      }
+    });
+
+    if (!data) return interaction.editReply("Error setting up game!");
+
+    if (data.length < 2) {
+      return interaction.editReply(
+        "You need at least two tributes to run a game"
+      );
+    }
+
+    if (districtSize === 3 && data.length < 6) {
+      return interaction.editReply(
+        "You need at least six tributes to run teams of three"
+      );
+    }
+    if (districtSize === 4 && data.length < 8) {
+      return interaction.editReply(
+        "You need at least eight tributes to run teams of four"
+      );
+    }
+
+    setComponentActive(true);
+    setBetsOpen(true);
+
+    await interaction.deferReply();
 
     let tributes = [];
     let gameData = [];
 
-    await setupGame(data, interaction, true, mongoClient, tributes, gameData);
-    await interaction.reply("Setting up game...");
+    await setupGame(
+      data,
+      interaction,
+      true,
+      mongoClient,
+      tributes,
+      gameData,
+      setComponentActive,
+      setBetsOpen,
+      districtSize
+    );
+    await interaction.editReply("Setting up game...");
   },
 };
 
@@ -42,7 +94,10 @@ async function setupGame(
   shuffle,
   mongoClient,
   tributes,
-  gameData
+  gameData,
+  setComponentActive,
+  setBetsOpen,
+  districtSize
 ) {
   tributes = [];
   if (shuffle === true) {
@@ -63,10 +118,7 @@ async function setupGame(
   });
 
   let n = 0;
-  let districtN = 2;
   let districtCount;
-  console.log(data.length);
-  console.log(districtN);
   for (let i = 0; i < data.length; i++) {
     n++;
     tributes.push({
@@ -75,36 +127,34 @@ async function setupGame(
       avatar: data[i].avatar,
       alive: true,
       kills: 0,
-      district: data.length === districtN ? i + 1 : Math.ceil(n / districtN),
+      district:
+        data.length === districtSize ? i + 1 : Math.ceil(n / districtSize),
     });
-    // console.log(n + " " + districtN);
     districtCount =
-      data.length === districtN ? i + 1 : Math.ceil(n / districtN);
+      data.length === districtSize ? i + 1 : Math.ceil(n / districtSize);
   }
-  console.log(districtCount);
 
   await activateTribute(mongoClient, interaction, {
     guild: interaction.guild.id,
     tributeData: tributes,
+    districtSize: districtSize,
     districtCount: districtCount,
     bets: [],
     pool: 0,
   });
 
-  const embedData = await game.generateTributes(tributes);
+  const embedData = await game.generateTributes(tributes, districtSize);
   if (interaction.isCommand()) {
     await interaction.channel.send({
       embeds: [embedData.embed],
       files: [embedData.attachment],
-      components: [embedData.row],
+      components: embedData.components,
     });
 
     await interaction.channel.send("Bets are now open!");
     const filter = (i) => {
       i.deferUpdate();
-      return (
-        i.user.id === interaction.user.id && i.componentType !== "SELECT_MENU"
-      );
+      return i.user.id === interaction.user.id;
     };
 
     const collector = await interaction.channel.createMessageComponentCollector(
@@ -114,19 +164,43 @@ async function setupGame(
     );
 
     collector.on("collect", async (interaction) => {
-      setup = false;
-      running = true;
-
       if (interaction.customId.substring(0, 6) === "random") {
+        if (interaction.values !== undefined) {
+          let ds = parseInt(interaction.values[0]);
+
+          if (ds === 3 && data.length < 6) {
+            return interaction.channel.send(
+              "You need at least six tributes to run teams of three"
+            );
+          }
+          if (ds === 4 && data.length < 8) {
+            return interaction.channel.send(
+              "You need at least eight tributes to run teams of four"
+            );
+          }
+          districtSize = parseInt(interaction.values[0]);
+        }
+
+        await interaction.channel.send("Bets have refreshed!");
+
         await setupGame(
           data,
           interaction,
           true,
           mongoClient,
           tributes,
-          gameData
+          gameData,
+          setComponentActive,
+          setBetsOpen,
+          districtSize
         );
       } else if (interaction.customId.substring(0, 5) === "start") {
+        if (running === false) {
+          setBetsOpen(false);
+          await interaction.channel.send("Bets have now closed!");
+        }
+        running = true;
+
         await startTurn(interaction, gameData, tributes);
 
         await interaction.message.edit({ components: [] });
@@ -140,7 +214,9 @@ async function setupGame(
           gameData,
           mongoClient,
           tributes,
-          collector
+          collector,
+          setComponentActive,
+          setBetsOpen
         );
         await interaction.message.edit({ components: [] });
       } else if (interaction.customId.substring(0, 3) === "end") {
@@ -166,7 +242,12 @@ async function setupGame(
       } else if (interaction.customId.substring(0, 7) === "destroy") {
         await interaction.deleteReply();
         await interaction.channel.send("Game has been terminated");
-        running = false;
+        await activateBets(mongoClient, interaction, {
+          bets: [],
+          pool: 0,
+        });
+        setComponentActive(false);
+        setBetsOpen(false);
         collector.stop();
       } else if (interaction.customId.substring(0, 6) === "cancel") {
         await interaction.deleteReply();
@@ -177,7 +258,7 @@ async function setupGame(
     interaction.channel.send({
       embeds: [embedData.embed],
       files: [embedData.attachment],
-      components: [embedData.row],
+      components: embedData.components,
     });
   }
 }
@@ -369,14 +450,12 @@ async function nextTurn(interaction, data, tributes) {
       );
 
     await interaction.channel.send({
-      //   content: `${embedResultsText[i]}`,
       embeds: [hungerGamesEmbed],
       files: [eventAttachment],
       components: data[0].deaths.length ? [row2] : [row3],
     });
   } else {
     await interaction.channel.send({
-      //   content: `${embedResultsText[i]}`,
       embeds: [hungerGamesEmbed],
       files: [eventAttachment],
       components: [row],
@@ -389,7 +468,9 @@ async function showFallenTributes(
   data,
   mongoClient,
   tributes,
-  collector
+  collector,
+  setComponentActive,
+  setBetsOpen
 ) {
   await activateTribute(mongoClient, interaction, {
     guild: interaction.guild.id,
@@ -465,11 +546,15 @@ async function showFallenTributes(
         files: [winAttachment],
       });
 
-      // await payout(mongoClient, interaction, db, tributesLeft[0].district);
+      await payout(mongoClient, interaction, db, tributesLeft[0].district);
+      await activateBets(mongoClient, interaction, {
+        bets: [],
+        pool: 0,
+      });
 
-      await payout(mongoClient, interaction, db, 2);
-
+      setBetsOpen(false);
       running = false;
+      setComponentActive(false);
       collector.stop("game over");
     }
 
@@ -498,9 +583,13 @@ async function showFallenTributes(
 
 function gameOver(tributeData) {
   const tributesLeftAlive = game.tributesLeftAlive(tributeData);
-
-  if (tributesLeftAlive.length === 2)
-    return tributesLeftAlive[0].district === tributesLeftAlive[1].district;
-  else if (tributesLeftAlive.length === 1) return true;
+  if (tributesLeftAlive.length <= districtSize) {
+    if (districtSize === 2) {
+      return tributesLeftAlive[0].district === tributesLeftAlive[1].district;
+    } else {
+      let check = tributesLeftAlive[0].district;
+      return tributesLeftAlive.every((tribute) => tribute.district === check);
+    }
+  } else if (tributesLeftAlive.length === 1) return true;
   else return false;
 }

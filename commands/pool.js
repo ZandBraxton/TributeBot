@@ -39,19 +39,13 @@ module.exports = {
       poolEmbed.addFields({
         name: `District ${i + 1}`,
         value: value.length === 0 ? "No Bets" : value.join("\n"),
+        inline: true,
       });
     }
 
-    // await bets.map((bet) => {
-    //   poolEmbed.addFields({
-    //     name: `${bet.username}`,
-    //     value: `${bet.amount} points on District ${bet.district}`,
-    //   });
-    // });
-    // let b = result.map((p) => p.username);
-
     interaction.reply({
       embeds: [poolEmbed],
+      ephemeral: true,
     });
   },
 };

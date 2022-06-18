@@ -7,7 +7,7 @@ module.exports = {
   async execute(interaction, db, mongoClient) {
     const user = interaction.user;
 
-    const result = await deleteUser(mongoClient, interaction, user);
+    const result = await deleteUser(mongoClient, interaction, "tributes", user);
 
     if (result.deletedCount === 0) {
       interaction.reply("You have not joined!");

@@ -8,7 +8,6 @@ module.exports = {
     const result = await getBets(mongoClient, interaction);
 
     let bet = result.bets;
-    let districtCount = result.districtCount;
     let pool = result.pool;
 
     let found = bet.find(
@@ -21,7 +20,6 @@ module.exports = {
         ephemeral: true,
       });
     bet = bet.filter((bet) => bet.username === interaction.username);
-    console.log(bet);
     pool -= found.amount;
 
     await activateBets(mongoClient, interaction, {

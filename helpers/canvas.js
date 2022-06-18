@@ -1,4 +1,5 @@
 const { createCanvas, loadImage } = require("canvas");
+const fetch = require("node-fetch");
 
 const avatarSize = 150;
 const halfAvatar = 75;
@@ -7,6 +8,10 @@ const avatarPaddingY = 230;
 const avatarSpacingX = 30;
 const avatarSpacingY = 130;
 const reBrackets = /\(([^)]+)\)/;
+const bgColor = "#5d5050";
+
+const defaultPfp =
+  "https://icon-library.com/images/blue-discord-icon/blue-discord-icon-15.jpg";
 
 function drawBackground(ctx, bgColor) {
   ctx.fillStyle = bgColor;
@@ -16,10 +21,18 @@ function drawBackground(ctx, bgColor) {
 async function massLoadImages(tributeData) {
   const avatarPromises = [];
   for (let i = 0; i < tributeData.length; i++) {
-    const avatar = loadImage(tributeData[i].avatar);
-    avatarPromises.push(avatar);
+    await fetch(tributeData[i].avatar, { method: "HEAD" })
+      .then((res) => {
+        if (res.ok) {
+          const avatar = loadImage(tributeData[i].avatar);
+          avatarPromises.push(avatar);
+        } else {
+          const avatar = loadImage(defaultPfp);
+          avatarPromises.push(avatar);
+        }
+      })
+      .catch((err) => console.log("Error:", err));
   }
-
   return await Promise.all(avatarPromises);
 }
 
@@ -44,9 +57,50 @@ function greyScale(ctx, destinationX, destinationY, avatarSize) {
   ctx.putImageData(imageData, destinationX, destinationY);
 }
 
-async function populateCanvas(tributeData) {
-  const verticalAvatarCount = Math.min(tributeData.length, 6);
-  const horitzontalAvatarCount = Math.ceil(tributeData.length / 6);
+async function populateCPU(tributeData) {
+  const canvasWidth = 400;
+  const canvasHeight = 400;
+
+  const canvas = createCanvas(canvasWidth, canvasHeight);
+  const ctx = canvas.getContext("2d");
+
+  drawBackground(ctx, bgColor);
+
+  const avatarYPosition = 50;
+  let avatarXPosition = canvasWidth / 2 - 125;
+  avatarXPosition -= (avatarSpacingX + 125) * (tributeData.length - 1);
+  const textYPosition = avatarYPosition + 250 + 50;
+
+  for (let i = 0; i < tributeData.length; i++) {
+    const tributeImage = await loadImage(tributeData[i].avatar);
+    const textXPosition = avatarXPosition + 125;
+
+    ctx.drawImage(tributeImage, avatarXPosition, avatarYPosition, 250, 250);
+    ctx.strokeRect(avatarXPosition, avatarYPosition, 250, 250);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 25px arial";
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+      `${tributeData[i].username.slice(0, 15)}`,
+      textXPosition,
+      textYPosition
+    );
+
+    avatarXPosition += avatarSpacingX + 250;
+  }
+
+  return canvas;
+}
+
+async function populateCanvas(tributeData, districtSize) {
+  const verticalAvatarCount = Math.min(
+    tributeData.length,
+    districtSize === 4 ? 8 : 6
+  );
+  const horitzontalAvatarCount = Math.ceil(
+    tributeData.length / (districtSize === 4 ? 8 : 6)
+  );
 
   const canvasWidth =
     (avatarSize + avatarSpacingX) * verticalAvatarCount -
@@ -62,21 +116,21 @@ async function populateCanvas(tributeData) {
   const canvas = createCanvas(canvasWidth, canvasHeight);
   const ctx = canvas.getContext("2d");
 
-  drawBackground(ctx, "#5d5050");
+  drawBackground(ctx, bgColor);
   drawHeaderText(ctx, ["The Reaping"], "tributes");
-  await generateStatusImage(ctx, tributeData);
+  await generateStatusImage(ctx, tributeData, districtSize);
 
   return canvas;
 }
 
-async function generateStatusImage(ctx, tributeData) {
+async function generateStatusImage(ctx, tributeData, districtSize) {
   ctx.strokeStyle = "#000000";
 
   let destinationX = avatarPaddingX;
   let destinationY = avatarPaddingY;
 
   const avatarPromises = await massLoadImages(tributeData);
-
+  let spacingMultiplier;
   for (let i = 0; i < tributeData.length; i++) {
     ctx.drawImage(
       await avatarPromises[i],
@@ -90,19 +144,26 @@ async function generateStatusImage(ctx, tributeData) {
     if (!tributeData[i].alive)
       greyScale(ctx, destinationX, destinationY, avatarSize);
 
-    const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+    if (districtSize === 2) {
+      spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+    } else if (districtSize === 3) {
+      spacingMultiplier = i % 3 === 2 ? 2 : 1;
+    } else {
+      spacingMultiplier = i % 4 === 3 ? 2 : 1;
+    }
+    // const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
     destinationX += avatarSize + avatarSpacingX * spacingMultiplier;
 
-    if ((i + 1) % 6 === 0) {
+    if ((i + 1) % (districtSize === 4 ? 8 : 6) === 0) {
       destinationX = avatarPaddingX;
       destinationY += avatarSize + avatarSpacingY;
     }
   }
 
-  drawTributeName(ctx, tributeData);
-  drawAliveText(ctx, tributeData);
-  drawDistrictText(ctx, tributeData);
-  drawKillsText(ctx, tributeData);
+  drawTributeName(ctx, tributeData, districtSize);
+  drawAliveText(ctx, tributeData, districtSize);
+  drawDistrictText(ctx, tributeData, districtSize);
+  drawKillsText(ctx, tributeData, districtSize);
 }
 
 async function generateEventImage(eventText, resultsText, avatarArray) {
@@ -122,7 +183,7 @@ async function generateEventImage(eventText, resultsText, avatarArray) {
 
   ctx.canvas.width = canvasWidth;
 
-  drawBackground(ctx, "#5d5050");
+  drawBackground(ctx, bgColor);
   drawHeaderText(ctx, [eventText, resultsText], "event");
 
   ctx.strokeStyle = "#000000";
@@ -160,7 +221,7 @@ async function generateFallenTributes(deaths, announcementCount, deathMessage) {
   const canvasWidth = Math.max(deathMessageLength, avatarXLength);
 
   ctx.canvas.width = canvasWidth;
-  drawBackground(ctx, "#5d5050");
+  drawBackground(ctx, bgColor);
   drawHeaderText(
     ctx,
     [deathMessage, `Fallen Tributes ${announcementCount}`],
@@ -218,7 +279,7 @@ async function generateWinnerImage(tributeData) {
   const canvas = createCanvas(canvasWidth, canvasHeight);
   const ctx = canvas.getContext("2d");
 
-  drawBackground(ctx, "#5d5050");
+  drawBackground(ctx, bgColor);
 
   if (tributeData.length === 1) {
     drawHeaderText(
@@ -334,9 +395,6 @@ function drawHeaderText(ctx, textArray, type) {
         ctx.font = "35px arial";
         ctx.textAlign = "left";
         fillMixedText(ctx, args, 50, 400);
-
-        // ctx.fillStyle = "#ffffff";
-        // ctx.fillText(text[i], ctx.canvas.width / 2, 400);
       }
     } else if (type === "win") {
       if (i === 2) {
@@ -370,7 +428,7 @@ function drawHeaderText(ctx, textArray, type) {
   }
 }
 
-function drawDistrictText(ctx, tributeArray) {
+function drawDistrictText(ctx, tributeArray, districtSize) {
   ctx.font = "bold 28px arial";
   ctx.fillStyle = "#ffffff";
   ctx.textAlign = "center";
@@ -391,15 +449,30 @@ function drawDistrictText(ctx, tributeArray) {
     return;
   }
 
-  const middleXPositionArray = [215, 590, 965];
-  const centerXPositionArray = [125, 500, 875];
+  let middleXPositionArray;
+  let centerXPositionArray;
+  let districtPerRow;
 
   let iterator = 0;
+
+  if (districtSize === 2) {
+    districtPerRow = 3;
+    middleXPositionArray = [215, 590, 965];
+    centerXPositionArray = [125, 500, 875];
+  } else if (districtSize === 3) {
+    districtPerRow = 2;
+    middleXPositionArray = [305, 865];
+    centerXPositionArray = [305, 865];
+  } else {
+    districtPerRow = 2;
+    middleXPositionArray = [400, 1150];
+    centerXPositionArray = [400, 1150];
+  }
 
   for (let i = 0; i < districtCount; i++) {
     const isLastIteration = i === districtCount - 1;
 
-    if (isLastIteration && tributeArray.length % 2 === 1) {
+    if (isLastIteration && tributeArray.length % districtSize === 1) {
       textDestinationX = centerXPositionArray[iterator];
     } else {
       textDestinationX = middleXPositionArray[iterator];
@@ -408,14 +481,14 @@ function drawDistrictText(ctx, tributeArray) {
     ctx.fillText(`District ${i + 1}`, textDestinationX, textDestinationY);
     iterator++;
 
-    if ((i + 1) % 3 === 0) {
+    if ((i + 1) % districtPerRow === 0) {
       iterator = 0;
       textDestinationY += avatarSize + avatarSpacingY;
     }
   }
 }
 
-function drawAliveText(ctx, tributeArray) {
+function drawAliveText(ctx, tributeArray, districtSize) {
   const aliveColor = "#70ec25";
   const deceasedColor = "#fa6666";
   ctx.font = "bold 25px arial";
@@ -431,17 +504,23 @@ function drawAliveText(ctx, tributeArray) {
     ctx.fillStyle = alive ? aliveColor : deceasedColor;
     ctx.fillText(statusText, textDestinationX, textDestinationY);
 
-    const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+    if (districtSize === 2) {
+      spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+    } else if (districtSize === 3) {
+      spacingMultiplier = i % 3 === 2 ? 2 : 1;
+    } else {
+      spacingMultiplier = i % 4 === 3 ? 2 : 1;
+    }
     textDestinationX += avatarSize + avatarSpacingX * spacingMultiplier;
 
-    if ((i + 1) % 6 === 0) {
+    if ((i + 1) % (districtSize === 4 ? 8 : 6) === 0) {
       textDestinationX = avatarPaddingX + halfAvatar;
       textDestinationY += avatarSize + avatarSpacingY;
     }
   }
 }
 
-function drawKillsText(ctx, tributeArray) {
+function drawKillsText(ctx, tributeArray, districtSize) {
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 20px arial";
   ctx.textAlign = "center";
@@ -459,20 +538,32 @@ function drawKillsText(ctx, tributeArray) {
         textDestinationY
       );
 
-      const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+      if (districtSize === 2) {
+        spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+      } else if (districtSize === 3) {
+        spacingMultiplier = i % 3 === 2 ? 2 : 1;
+      } else {
+        spacingMultiplier = i % 4 === 3 ? 2 : 1;
+      }
       textDestinationX += avatarSize + avatarSpacingX * spacingMultiplier;
 
-      if ((i + 1) % 6 === 0) {
+      if ((i + 1) % (districtSize === 4 ? 8 : 6) === 0) {
         textDestinationX = avatarPaddingX + halfAvatar;
         textDestinationY += avatarSize + avatarSpacingY;
       }
     } else {
       ctx.fillText("", textDestinationX, textDestinationY);
 
-      const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+      if (districtSize === 2) {
+        spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+      } else if (districtSize === 3) {
+        spacingMultiplier = i % 3 === 2 ? 2 : 1;
+      } else {
+        spacingMultiplier = i % 4 === 3 ? 2 : 1;
+      }
       textDestinationX += avatarSize + avatarSpacingX * spacingMultiplier;
 
-      if ((i + 1) % 6 === 0) {
+      if ((i + 1) % (districtSize === 4 ? 8 : 6) === 0) {
         textDestinationX = avatarPaddingX + halfAvatar;
         textDestinationY += avatarSize + avatarSpacingY;
       }
@@ -480,7 +571,7 @@ function drawKillsText(ctx, tributeArray) {
   }
 }
 
-function drawTributeName(ctx, tributeArray) {
+function drawTributeName(ctx, tributeArray, districtSize) {
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 20px arial";
   ctx.textAlign = "center";
@@ -495,10 +586,16 @@ function drawTributeName(ctx, tributeArray) {
       textDestinationY
     );
 
-    const spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+    if (districtSize === 2) {
+      spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
+    } else if (districtSize === 3) {
+      spacingMultiplier = i % 3 === 2 ? 2 : 1;
+    } else {
+      spacingMultiplier = i % 4 === 3 ? 2 : 1;
+    }
     textDestinationX += avatarSize + avatarSpacingX * spacingMultiplier;
 
-    if ((i + 1) % 6 === 0) {
+    if ((i + 1) % (districtSize === 4 ? 8 : 6) === 0) {
       textDestinationX = avatarPaddingX + halfAvatar;
       textDestinationY += avatarSize + avatarSpacingY;
     }
@@ -525,6 +622,7 @@ module.exports = {
   massLoadImages,
   greyScale,
   populateCanvas,
+  populateCPU,
   generateEventImage,
   generateFallenTributes,
   generateWinnerImage,

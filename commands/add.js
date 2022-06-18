@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require("@discordjs/builders");
-const { MessageEmbed } = require("discord.js");
 const { createUser } = require("../helpers/queries");
 
 module.exports = {
@@ -12,7 +11,7 @@ module.exports = {
   async execute(interaction, db, mongoClient) {
     const user = await interaction.options.getUser("user");
     if (!user) return interaction.reply("You must specify a user!");
-    const result = await createUser(mongoClient, interaction, user);
+    const result = await createUser(mongoClient, interaction, "tributes", user);
 
     if (result.upsertedId === null) {
       interaction.reply(
