@@ -1,10 +1,10 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
+const { SlashCommandBuilder } = require("discord.js");
 const { createUser } = require("../helpers/queries");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("add")
-    .setDescription("(Mickey Masters Only) Add a user to the list of tributes")
+    .setDescription("(Game Runners Only) Add a user to the list of tributes")
     .addUserOption((option) =>
       option.setName("user").setDescription("Select a user")
     ),

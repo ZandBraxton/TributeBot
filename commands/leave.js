@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
+const { SlashCommandBuilder } = require("discord.js");
 const { deleteUser } = require("../helpers/queries");
 module.exports = {
   data: new SlashCommandBuilder()

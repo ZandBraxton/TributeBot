@@ -1,5 +1,5 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
-const { MessageEmbed } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const { getBets, activateBets } = require("../helpers/queries");
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,7 +17,7 @@ module.exports = {
         ephemeral: true,
       });
 
-    const poolEmbed = new MessageEmbed()
+    const poolEmbed = new EmbedBuilder()
       .setColor("#0099ff")
       .setTitle("Pool")
       .addFields({

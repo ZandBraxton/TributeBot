@@ -1,11 +1,21 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
+const { SlashCommandBuilder, ButtonStyle } = require("discord.js");
 const {
-  MessageEmbed,
-  MessageActionRow,
-  MessageAttachment,
-  MessageButton,
+  EmbedBuilder,
+  ActionRowBuilder,
+  AttachmentBuilder,
+  ButtonBuilder,
+  InteractionType,
 } = require("discord.js");
-const game = require("../helpers/game");
+const {
+  shuffleDistricts,
+  tributesLeftAlive,
+  generateTributes,
+  eventTrigger,
+  betComponents,
+  buildModal,
+  placeBet,
+  sleep,
+} = require("../helpers/game");
 const {
   activateTribute,
   activateBets,
@@ -18,11 +28,12 @@ const { v4: uuidv4 } = require("uuid");
 const db = require("../database");
 let districtSize;
 let running = false;
+const mongoClient = require("../database/mongodb");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("mickey-games")
-    .setDescription("(Mickey Masters Only) Set's up a new Mickey Games!")
+    .setDescription("(Game Runners Only)  Set's up a new Mickey Games!")
     .addIntegerOption((option) =>
       option
         .setName("district-size")
@@ -33,7 +44,7 @@ module.exports = {
           { name: "4", value: 4 }
         )
     ),
-  async execute(interaction, db, mongoClient, setComponentActive, setBetsOpen) {
+  async execute(interaction, db, setComponentActive, setBetsOpen) {
     districtSize = await interaction.options.getInteger("district-size");
     if (!districtSize) districtSize = 2;
 
@@ -84,7 +95,6 @@ module.exports = {
       setBetsOpen,
       districtSize
     );
-    await interaction.editReply("Setting up game...");
   },
 };
 
@@ -101,7 +111,7 @@ async function setupGame(
 ) {
   tributes = [];
   if (shuffle === true) {
-    data = game.shuffle(data);
+    data = shuffleDistricts(data);
   }
 
   gameData.push({
@@ -136,26 +146,45 @@ async function setupGame(
 
   await activateTribute(mongoClient, interaction, {
     guild: interaction.guild.id,
+    gameRunner: interaction.user.username,
     tributeData: tributes,
     districtSize: districtSize,
     districtCount: districtCount,
     bets: [],
     pool: 0,
   });
+  console.log(districtCount);
 
-  const embedData = await game.generateTributes(tributes, districtSize);
-  if (interaction.isCommand()) {
-    await interaction.channel.send({
+  const embedData = await generateTributes(tributes, districtSize);
+  if (interaction.type === InteractionType.ApplicationCommand) {
+    await interaction.editReply({
+      // content: "`Bets are now open`",
       embeds: [embedData.embed],
       files: [embedData.attachment],
       components: embedData.components,
     });
 
-    await interaction.channel.send("Bets are now open!");
+    const bettingComponent = await interaction.followUp({
+      content: "`Bets are now open, select a district to bet Scampoints on`",
+      components: await betComponents(interaction),
+    });
+
     const filter = (i) => {
-      i.deferUpdate();
       return i.user.id === interaction.user.id;
     };
+
+    const bettingCollector =
+      await bettingComponent.createMessageComponentCollector({});
+    bettingCollector.on("collect", async (i) => {
+      try {
+        await placeBet(i, districtCount, interaction.user.username);
+        console.log(i);
+      } catch (error) {
+        console.log(error);
+      }
+    });
+
+    // await interaction.followUp("Bets are now open!");
 
     const collector = await interaction.channel.createMessageComponentCollector(
       {
@@ -221,18 +250,18 @@ async function setupGame(
         await interaction.message.edit({ components: [] });
       } else if (interaction.customId.substring(0, 3) === "end") {
         const uniqueId = uuidv4();
-        let row = new MessageActionRow()
+        let row = new ActionRowBuilder()
           .addComponents(
-            new MessageButton()
+            new ButtonBuilder()
               .setCustomId("destroy" + uniqueId)
               .setLabel("End Game")
-              .setStyle("DANGER")
+              .setStyle(ButtonStyle.Danger)
           )
           .addComponents(
-            new MessageButton()
+            new ButtonBuilder()
               .setCustomId("cancel" + uniqueId)
               .setLabel("Cancel")
-              .setStyle("SECONDARY")
+              .setStyle(ButtonStyle.Secondary)
           );
 
         await interaction.channel.send({
@@ -266,14 +295,14 @@ async function setupGame(
 async function startTurn(interaction, data, tributes) {
   if (!data[0].bloodBath && data[0].sun) data[0].turn++;
 
-  const remainingTributes = game.tributesLeftAlive(tributes);
+  const remainingTributes = tributesLeftAlive(tributes);
   const currentEvent = data[0].bloodBath
     ? bloodbath
     : data[0].sun
     ? day
     : night;
 
-  game.eventTrigger(
+  eventTrigger(
     currentEvent,
     remainingTributes,
     data[0].avatars,
@@ -290,24 +319,24 @@ async function startTurn(interaction, data, tributes) {
       : `Night ${data[0].turn}`
   }`;
 
-  const hungerGamesEmbed = new MessageEmbed()
+  const hungerGamesEmbed = new EmbedBuilder()
     .setTitle(`The Mickey Games - ${eventText}`)
     .setColor("#5d5050");
 
   const uniqueId = uuidv4();
 
-  const row = new MessageActionRow()
+  const row = new ActionRowBuilder()
     .addComponents(
-      new MessageButton()
+      new ButtonBuilder()
         .setCustomId("end" + uniqueId)
         .setLabel("End Game")
-        .setStyle("DANGER")
+        .setStyle(ButtonStyle.Danger)
     )
     .addComponents(
-      new MessageButton()
+      new ButtonBuilder()
         .setCustomId("next" + uniqueId)
         .setLabel("Next")
-        .setStyle("SUCCESS")
+        .setStyle(ButtonStyle.Success)
     );
 
   const eventImage = await canvasHelper.generateEventImage(
@@ -316,7 +345,7 @@ async function startTurn(interaction, data, tributes) {
     data[0].avatars[data[0].i]
   );
 
-  const eventAttachment = new MessageAttachment(
+  const eventAttachment = new AttachmentBuilder(
     eventImage.toBuffer(),
     "currentEvent.png"
   );
@@ -329,32 +358,32 @@ async function startTurn(interaction, data, tributes) {
   data[0].i++;
 
   if (data[0].i === data[0].results.length) {
-    const row2 = new MessageActionRow()
+    const row2 = new ActionRowBuilder()
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("end" + uniqueId)
           .setLabel("End Game")
-          .setStyle("DANGER")
+          .setStyle(ButtonStyle.Danger)
       )
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("dead" + uniqueId)
           .setLabel("Show Fallen Tributes")
-          .setStyle("PRIMARY")
+          .setStyle(ButtonStyle.Primary)
       );
 
-    const row3 = new MessageActionRow()
+    const row3 = new ActionRowBuilder()
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("end" + uniqueId)
           .setLabel("End Game")
-          .setStyle("DANGER")
+          .setStyle(ButtonStyle.Danger)
       )
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("dead" + uniqueId)
           .setLabel("Nobody Died, Continue")
-          .setStyle("SUCCESS")
+          .setStyle(ButtonStyle.Success)
       );
 
     await interaction.channel.send({
@@ -372,7 +401,7 @@ async function startTurn(interaction, data, tributes) {
 }
 
 async function nextTurn(interaction, data, tributes) {
-  const remainingTributes = game.tributesLeftAlive(tributes);
+  const remainingTributes = tributesLeftAlive(tributes);
 
   const eventText = `${
     data[0].bloodBath
@@ -382,24 +411,24 @@ async function nextTurn(interaction, data, tributes) {
       : `Night ${data[0].turn}`
   }`;
 
-  const hungerGamesEmbed = new MessageEmbed()
+  const hungerGamesEmbed = new EmbedBuilder()
     .setTitle(`The Mickey Games - ${eventText}`)
     .setColor("#5d5050");
 
   const uniqueId = uuidv4();
 
-  const row = new MessageActionRow()
+  const row = new ActionRowBuilder()
     .addComponents(
-      new MessageButton()
+      new ButtonBuilder()
         .setCustomId("end" + uniqueId)
         .setLabel("End Game")
-        .setStyle("DANGER")
+        .setStyle(ButtonStyle.Danger)
     )
     .addComponents(
-      new MessageButton()
+      new ButtonBuilder()
         .setCustomId("next" + uniqueId)
         .setLabel("Next")
-        .setStyle("SUCCESS")
+        .setStyle(ButtonStyle.Success)
     );
 
   const eventImage = await canvasHelper.generateEventImage(
@@ -408,7 +437,7 @@ async function nextTurn(interaction, data, tributes) {
     data[0].avatars[data[0].i]
   );
 
-  const eventAttachment = new MessageAttachment(
+  const eventAttachment = new AttachmentBuilder(
     eventImage.toBuffer(),
     "currentEvent.png"
   );
@@ -421,32 +450,32 @@ async function nextTurn(interaction, data, tributes) {
   data[0].i++;
 
   if (data[0].i === data[0].results.length) {
-    const row2 = new MessageActionRow()
+    const row2 = new ActionRowBuilder()
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("end" + uniqueId)
           .setLabel("End Game")
-          .setStyle("DANGER")
+          .setStyle(ButtonStyle.Danger)
       )
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("dead" + uniqueId)
           .setLabel("Show Fallen Tributes")
-          .setStyle("PRIMARY")
+          .setStyle(ButtonStyle.Primary)
       );
 
-    const row3 = new MessageActionRow()
+    const row3 = new ActionRowBuilder()
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("end" + uniqueId)
           .setLabel("End Game")
-          .setStyle("DANGER")
+          .setStyle(ButtonStyle.Danger)
       )
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("dead" + uniqueId)
           .setLabel("Nobody Died, Continue")
-          .setStyle("SUCCESS")
+          .setStyle(ButtonStyle.Success)
       );
 
     await interaction.channel.send({
@@ -488,28 +517,28 @@ async function showFallenTributes(
       deathMessage
     );
 
-    const deathAttachment = new MessageAttachment(
+    const deathAttachment = new AttachmentBuilder(
       deathImage.toBuffer(),
       "deadTributes.png"
     );
 
     const uniqueId = uuidv4();
 
-    const row = new MessageActionRow()
+    const row = new ActionRowBuilder()
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("end" + uniqueId)
           .setLabel("End Game")
-          .setStyle("DANGER")
+          .setStyle(ButtonStyle.Danger)
       )
       .addComponents(
-        new MessageButton()
+        new ButtonBuilder()
           .setCustomId("start" + uniqueId)
           .setLabel("Continue Game")
-          .setStyle("SUCCESS")
+          .setStyle(ButtonStyle.Success)
       );
 
-    const deadTributesEmbed = new MessageEmbed()
+    const deadTributesEmbed = new EmbedBuilder()
       .setTitle(`The Mickey Games - Fallen Tributes`)
       .setImage("attachment://deadTributes.png")
       .setDescription(`\n${deathMessage}\n\n${deathList}`)
@@ -524,18 +553,18 @@ async function showFallenTributes(
     });
 
     if (gameEnd === true) {
-      const tributesLeft = game.tributesLeftAlive(tributes);
+      const tributesLeft = tributesLeftAlive(tributes);
       const winner = tributesLeft.map((trib) => `${trib.name}`).join(" and ");
       const winnerText = tributesLeft.length > 1 ? `winners are` : `winner is`;
 
       const winnerImage = await canvasHelper.generateWinnerImage(tributesLeft);
 
-      const winAttachment = new MessageAttachment(
+      const winAttachment = new AttachmentBuilder(
         winnerImage.toBuffer(),
         "winner.png"
       );
 
-      const winnerEmbed = new MessageEmbed()
+      const winnerEmbed = new EmbedBuilder()
         .setTitle(
           `The ${winnerText} ${winner} from District ${tributesLeft[0].district}!`
         )
@@ -582,7 +611,10 @@ async function showFallenTributes(
 }
 
 function gameOver(tributeData) {
-  const tributesLeftAlive = game.tributesLeftAlive(tributeData);
+  const tributesLeftAlive = tributesLeftAlive(tributeData);
+
+  if (tributesLeftAlive.length === 1) return true;
+
   if (tributesLeftAlive.length <= districtSize) {
     if (districtSize === 2) {
       return tributesLeftAlive[0].district === tributesLeftAlive[1].district;
@@ -590,6 +622,5 @@ function gameOver(tributeData) {
       let check = tributesLeftAlive[0].district;
       return tributesLeftAlive.every((tribute) => tribute.district === check);
     }
-  } else if (tributesLeftAlive.length === 1) return true;
-  else return false;
+  } else return false;
 }

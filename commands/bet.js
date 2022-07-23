@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
+const { SlashCommandBuilder } = require("discord.js");
 const { getBets, activateBets } = require("../helpers/queries");
 
 module.exports = {
@@ -8,7 +8,9 @@ module.exports = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("amount")
-        .setDescription("Enter an amount")
+        .setDescription(
+          "Bet Scambot points on which district you think will win"
+        )
         .addIntegerOption((option) =>
           option
             .setName("amount")
@@ -33,10 +35,15 @@ module.exports = {
           option
             .setName("district")
             .setDescription(
-              "Enter the number of the district you wish to bet on"
+              "Bet all Scambot points on which district you think will win"
             )
             .setRequired(true)
         )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("withdraw")
+        .setDescription("Withdraw from the betting pool")
     ),
   async execute(interaction, db, mongoClient) {
     const result = await getBets(mongoClient, interaction);
@@ -44,12 +51,34 @@ module.exports = {
     let districtCount = result.districtCount;
     let pool = result.pool;
     const user = interaction.user;
-    let found = bet.find((element) => element.username === user.username);
-    if (found !== undefined)
+    const found = bet.find((element) => element.username === user.username);
+    const choice = interaction.options.getSubcommand();
+    if (choice === "withdraw") {
+      if (found === undefined)
+        return interaction.reply({
+          content: `You have not made a bet yet!`,
+          ephemeral: true,
+        });
+      bet = bet.filter((bet) => bet.username === interaction.username);
+      pool -= found.amount;
+
+      await activateBets(mongoClient, interaction, {
+        bets: bet,
+        pool: pool,
+      });
+
       return interaction.reply({
-        content: `You have already bet ${found.amount} points on District ${found.district}, use /withdraw to withdraw your prior bet`,
+        content: `${found.username} has withdrawn their bet of ${found.amount} on District ${found.district}, the total pool is now ${pool}.`,
+      });
+    }
+
+    if (found !== undefined) {
+      return interaction.reply({
+        content: `You have already bet ${found.amount} points on District ${found.district}, use /bet withdraw to withdraw your prior bet`,
         ephemeral: true,
       });
+    }
+
     let points;
     let betAmount;
 
@@ -60,9 +89,9 @@ module.exports = {
       ])
       .then((res) => (points = res.rows[0].points));
 
-    if (interaction.options.getSubcommand() === "all") {
+    if (choice === "all") {
       betAmount = points;
-    } else if (interaction.options.getSubcommand() === "amount") {
+    } else if (choice === "amount") {
       betAmount = await interaction.options.getInteger("amount");
     }
 
@@ -92,7 +121,6 @@ module.exports = {
         content: "This district does not exist!",
         ephemeral: true,
       });
-    console.log(result.bets);
 
     pool += betAmount;
     bet.push({

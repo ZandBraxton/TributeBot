@@ -26,7 +26,35 @@ async function createUser(client, interaction, collection, user) {
   return result;
 }
 
-async function getBets(client, interaction) {
+async function getUser(client, interaction, collection, user) {
+  await client.connect();
+
+  const result = await client
+    .db("hunger-games")
+    .collection(collection)
+    .findOne({
+      guild: interaction.guild.id,
+      username: user.username,
+    });
+
+  return result;
+}
+
+async function getTributes(client, interaction, collection) {
+  await client.connect();
+
+  const result = await client
+    .db("hunger-games")
+    .collection(collection)
+    .find({
+      guild: interaction.guild.id,
+    })
+    .toArray();
+
+  return result;
+}
+
+async function getBets(client, interaction, gameRunner) {
   await client.connect();
 
   const result = await client
@@ -34,11 +62,12 @@ async function getBets(client, interaction) {
     .collection("active-tributes")
     .findOne({
       guild: interaction.guild.id,
+      gameRunner: gameRunner,
     });
   return result;
 }
 
-async function activateBets(client, interaction, dataSet) {
+async function activateBets(client, interaction, gameRunner, dataSet) {
   await client.connect();
 
   const result = await client
@@ -47,6 +76,7 @@ async function activateBets(client, interaction, dataSet) {
     .updateOne(
       {
         guild: interaction.guild.id,
+        gameRunner: gameRunner,
       },
       {
         $set: dataSet,
@@ -65,6 +95,7 @@ async function activateTribute(client, interaction, dataSet) {
     .updateOne(
       {
         guild: interaction.guild.id,
+        gameRunner: interaction.user.username,
       },
       {
         $set: dataSet,
@@ -187,25 +218,12 @@ async function deleteUser(client, interaction, collection, user) {
   return result;
 }
 
-async function getTributes(client, interaction, collection) {
-  await client.connect();
-
-  const result = await client
-    .db("hunger-games")
-    .collection(collection)
-    .find({
-      guild: interaction.guild.id,
-    })
-    .toArray();
-
-  return result;
-}
-
 module.exports = {
   createUser,
   deleteUser,
   getTributes,
   getBets,
+  getUser,
   activateTribute,
   activateBets,
   activateCPU,

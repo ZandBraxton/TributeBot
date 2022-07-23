@@ -1,30 +1,39 @@
-const { Client, Intents, Collection } = require("discord.js");
+require("dotenv").config();
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  InteractionType,
+} = require("discord.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MESSAGE_REACTIONS,
-    Intents.FLAGS.GUILD_MEMBERS,
-    "GUILDS",
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers,
   ],
 });
 const db = require("./database");
-const { MongoClient } = require("mongodb");
-require("dotenv").config();
+// const { MongoClient } = require("mongodb");
+const { submitBet } = require("./helpers/game");
 let betsOpen = false;
 let componentActive = false;
+let lock = false;
 
 function setComponentActive(bool) {
   componentActive = bool;
+}
+
+function setLock(bool) {
+  lock = bool;
 }
 
 function setBetsOpen(bool) {
   betsOpen = bool;
 }
 
-const mongoClient = new MongoClient(process.env.MONGO_URI);
+// const mongoClient = new MongoClient(process.env.MONGO_URI);
 
 client.on("ready", () => {
   console.log("ready!");
@@ -32,19 +41,17 @@ client.on("ready", () => {
 
 let permissionCommands = [
   "mickey-games",
-  "quick-add",
   "add",
   "remove",
-  "shuffle",
-  "test",
-  "cpu-list",
-  "store-cpu",
-  "enrolled",
+  "lock-tributes",
+  "banlist",
+  "cpu",
+  "game-runner-info",
 ];
 
 let allowedUsers = ["Bubbles"];
 
-let oneAtATimeInteraction = ["mickey-games", "cpu-list", "store-cpu"];
+// let oneAtATimeInteraction = ["mickey-games", "cpu"];
 
 client.commands = new Collection();
 const commandsPath = path.join(__dirname, "commands");
@@ -61,24 +68,59 @@ for (const file of commandFiles) {
 }
 
 client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isCommand()) {
+  if (interaction.type === InteractionType.ModalSubmit) {
+    console.log(interaction);
+    try {
+      await submitBet(interaction);
+    } catch (error) {
+      await interaction.reply({
+        content: "Something went wrong!",
+        ephemeral: true,
+      });
+    }
+  }
+
+  if (interaction.type !== InteractionType.ApplicationCommand) {
     return;
   }
 
   const command = client.commands.get(interaction.commandName);
 
-  if (command.data.name === "bet" || command.data.name === "withdraw") {
+  console.log(command);
+
+  if (command.data.name === "bet") {
     if (betsOpen === false) {
       return interaction.channel.send("Bets are currently closed!");
     }
   }
 
-  if (oneAtATimeInteraction.includes(command.data.name)) {
-    if (componentActive === true)
-      return interaction.reply(
-        "You cannot call this while another command is active"
-      );
+  if (command.data.name === "lock-tributes") {
+    try {
+      await command.execute(interaction, db, mongoClient, setLock);
+    } catch (error) {
+      console.error(error);
+      await interaction.reply({
+        content: "There was an error while executing this command!",
+        ephemeral: true,
+      });
+    }
+    return;
   }
+
+  if (command.data.name === "join-tribute") {
+    if (lock === true) {
+      return interaction.reply(
+        "Tributes are currently locked! Only Game Runners can add tributes at this time."
+      );
+    }
+  }
+
+  // if (oneAtATimeInteraction.includes(command.data.name)) {
+  //   if (componentActive === true)
+  //     return interaction.reply(
+  //       "You cannot call this while another command is active"
+  //     );
+  // }
 
   if (permissionCommands.includes(command.data.name)) {
     //If we want to make it role specific
@@ -100,7 +142,6 @@ client.on("interactionCreate", async (interaction) => {
     await command.execute(
       interaction,
       db,
-      mongoClient,
       setComponentActive,
       setBetsOpen,
       client

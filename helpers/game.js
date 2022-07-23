@@ -1,14 +1,22 @@
 const {
-  MessageEmbed,
-  MessageSelectMenu,
-  MessageActionRow,
-  MessageAttachment,
-  MessageButton,
+  EmbedBuilder,
+  SelectMenuBuilder,
+  ActionRowBuilder,
+  AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } = require("discord.js");
+const mongoClient = require("../database/mongodb");
 const { v4: uuidv4 } = require("uuid");
 const canvasHelper = require("../helpers/canvas");
+const db = require("../database");
+const { getBets, activateBets } = require("../helpers/queries");
+const bet = require("../commands/bet");
 
-function shuffle(array) {
+function shuffleDistricts(array) {
   let currentIndex = array.length,
     randomIndex;
 
@@ -29,42 +37,41 @@ function tributesLeftAlive(tributeData) {
 }
 
 async function generateTributes(players, districtSize) {
-  const embed = new MessageEmbed()
+  const embed = new EmbedBuilder()
     .setImage("attachment://tributesPage.png")
     .setColor("#5d5050");
 
   const canvas = await canvasHelper.populateCanvas(players, districtSize);
 
-  const attachment = new MessageAttachment(
-    canvas.toBuffer(),
-    "tributesPage.png"
-  );
+  const attachment = new AttachmentBuilder(canvas.toBuffer(), {
+    name: "tributesPage.png",
+  });
 
   const uniqueId = uuidv4();
 
-  let row = new MessageActionRow()
+  let row = new ActionRowBuilder()
 
     .addComponents(
-      new MessageButton()
+      new ButtonBuilder()
         .setCustomId("end" + uniqueId)
         .setLabel("End Game")
-        .setStyle("DANGER")
+        .setStyle(ButtonStyle.Danger)
     )
     .addComponents(
-      new MessageButton()
+      new ButtonBuilder()
         .setCustomId("random" + uniqueId)
         .setLabel("Randomize Districts")
-        .setStyle("PRIMARY")
+        .setStyle(ButtonStyle.Primary)
     )
     .addComponents(
-      new MessageButton()
+      new ButtonBuilder()
         .setCustomId("start" + uniqueId)
         .setLabel("Start")
-        .setStyle("SUCCESS")
+        .setStyle(ButtonStyle.Success)
     );
 
-  let districtSizeRow = new MessageActionRow().addComponents(
-    new MessageSelectMenu()
+  let districtSizeRow = new ActionRowBuilder().addComponents(
+    new SelectMenuBuilder()
       .setCustomId("random" + uuidv4())
       .setPlaceholder("District Size")
       .addOptions([
@@ -86,6 +93,145 @@ async function generateTributes(players, districtSize) {
   let components = [row, districtSizeRow];
 
   return { embed, attachment, components };
+}
+
+async function betComponents(interaction) {
+  console.log(interaction);
+  const components = [];
+  // const bettingRow = new SelectMenuBuilder()
+  // bettingRow.setCustomId("bet").setPlaceholder(`Districts 1-${districtCount}`)
+
+  // for (let i = 0; i < )
+
+  const betButton = new ButtonBuilder()
+    .setCustomId(`${interaction.user.username}`)
+    .setLabel("Bet")
+    .setStyle(ButtonStyle.Success);
+
+  const buttonRow = new ActionRowBuilder().addComponents(betButton);
+  components.push(buttonRow);
+  return components;
+}
+
+async function placeBet(i, districtCount, gameRunner) {
+  const result = await getBets(mongoClient, i, gameRunner);
+  const user = i.user;
+  const found = result.bets.find((bet) => bet.username === user.username);
+  if (found !== undefined) {
+    return i.reply({
+      content: `You have already bet ${found.amount} points on District ${found.district}, use /bet withdraw to withdraw your prior bet`,
+      ephemeral: true,
+    });
+  }
+  await db
+    .query("SELECT * FROM scores WHERE username = $1 AND guild = $2", [
+      i.user.username,
+      i.guild.id,
+    ])
+    .then((res) => (points = res.rows[0].points));
+
+  console.log(points);
+
+  const modal = new ModalBuilder()
+    .setCustomId(gameRunner)
+    .setTitle("Place your bet");
+
+  const districtInput = new TextInputBuilder()
+    .setCustomId("district")
+    .setLabel(`District Number (1-${districtCount})`)
+    .setPlaceholder("Enter the district number you want to bet on")
+    .setStyle(TextInputStyle.Short);
+
+  const pointsInput = new TextInputBuilder()
+    .setCustomId("points")
+    .setLabel("Points to bet")
+    .setPlaceholder(`You currently have ${points} points`)
+    .setStyle(TextInputStyle.Short);
+  const firstActionRow = new ActionRowBuilder().addComponents(districtInput);
+  const secondActionRow = new ActionRowBuilder().addComponents(pointsInput);
+
+  modal.addComponents(firstActionRow, secondActionRow);
+
+  await i.showModal(modal, { interaction: i });
+}
+
+async function buildModal(points, districtCount) {
+  const modal = new ModalBuilder()
+    .setCustomId("bet")
+    .setTitle("Place your bet");
+
+  const districtInput = new TextInputBuilder()
+    .setCustomId("district")
+    .setLabel("District Number")
+    .setStyle(TextInputStyle.Short);
+  const firstActionRow = new ActionRowBuilder().addComponents(districtInput);
+
+  modal.addComponents(firstActionRow);
+  return modal;
+}
+
+async function submitBet(interaction) {
+  const result = await getBets(mongoClient, interaction, interaction.customId);
+  const bets = result.bets;
+  const districtCount = result.districtCount;
+  let pool = result.pool;
+  const user = interaction.user;
+
+  const betAmount = interaction.fields.getTextInputValue("points");
+  const district = interaction.fields.getTextInputValue("district");
+  if (typeof betAmount !== "number" || typeof district !== "number") {
+    return interaction.reply({
+      content: "Both values must be a number",
+      ephemeral: true,
+    });
+  }
+  console.log(interaction.customId);
+  console.log(result);
+
+  let points;
+  await db
+    .query("SELECT * FROM scores WHERE username = $1 AND guild = $2", [
+      interaction.user.username,
+      interaction.guild.id,
+    ])
+    .then((res) => (points = res.rows[0].points));
+
+  if (!betAmount || betAmount <= 0) {
+    return interaction.reply({
+      content: "You need to specify how many points to bet",
+      ephemeral: true,
+    });
+  }
+
+  if (points < betAmount) {
+    return interaction.reply({
+      content: "You do not have that many points to bet",
+      ephemeral: true,
+    });
+  }
+
+  if (district > districtCount || district < 0)
+    return interaction.reply({
+      content: "This district does not exist!",
+      ephemeral: true,
+    });
+
+  pool += parseInt(betAmount);
+
+  bets.push({
+    district: district,
+    amount: betAmount,
+    username: user.username,
+  });
+
+  await activateBets(mongoClient, interaction, interaction.customId, {
+    bets: bets,
+    pool: pool,
+  });
+
+  return interaction.reply({
+    content: `${user.username} has bet ${betAmount} on District ${district}, the total pool is now ${pool}.`,
+  });
 }
 
 function eventTrigger(
@@ -167,9 +313,13 @@ async function sleep(ms) {
 }
 
 module.exports = {
-  shuffle,
+  shuffleDistricts,
   tributesLeftAlive,
   generateTributes,
   eventTrigger,
+  betComponents,
+  buildModal,
+  placeBet,
+  submitBet,
   sleep,
 };

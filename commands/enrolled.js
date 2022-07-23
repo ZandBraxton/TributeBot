@@ -1,5 +1,5 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
-const { MessageEmbed } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const { getTributes } = require("../helpers/queries");
 
 module.exports = {
@@ -11,7 +11,7 @@ module.exports = {
 
     if (!result.length) return interaction.reply("There are no tributes");
     let p = result.map((p) => p.username);
-    const enrolled = new MessageEmbed()
+    const enrolled = new EmbedBuilder()
       .setColor("#0099ff")
       .setTitle("Added Players")
       .addFields({

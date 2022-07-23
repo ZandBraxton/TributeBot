@@ -1,5 +1,5 @@
-const { SlashCommandBuilder } = require("@discordjs/builders");
-const { MessageEmbed, MessageAttachment } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
+const { EmbedBuilder, AttachmentBuilder } = require("discord.js");
 const { getTributes } = require("../helpers/queries");
 const canvasHelper = require("../helpers/canvas");
 
@@ -26,13 +26,13 @@ module.exports = {
 };
 
 async function generateTributes(players, interaction, districtSize) {
-  const tributeEmbed = new MessageEmbed()
+  const tributeEmbed = new EmbedBuilder()
     .setImage("attachment://tributesPage.png")
     .setColor("#5d5050");
 
   const canvas = await canvasHelper.populateCanvas(players, districtSize);
 
-  const attachment = new MessageAttachment(
+  const attachment = new AttachmentBuilder(
     canvas.toBuffer(),
     "tributesPage.png"
   );
