@@ -15,7 +15,6 @@ const client = new Client({
   ],
 });
 const db = require("./database");
-// const { MongoClient } = require("mongodb");
 const { submitBet } = require("./helpers/game");
 let betsOpen = false;
 let componentActive = false;
@@ -32,8 +31,6 @@ function setLock(bool) {
 function setBetsOpen(bool) {
   betsOpen = bool;
 }
-
-// const mongoClient = new MongoClient(process.env.MONGO_URI);
 
 client.on("ready", () => {
   console.log("ready!");
@@ -96,7 +93,7 @@ client.on("interactionCreate", async (interaction) => {
 
   if (command.data.name === "lock-tributes") {
     try {
-      await command.execute(interaction, db, mongoClient, setLock);
+      await command.execute(interaction, db, setLock);
     } catch (error) {
       console.error(error);
       await interaction.reply({

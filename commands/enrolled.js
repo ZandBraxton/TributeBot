@@ -6,8 +6,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("enrolled")
     .setDescription("Who's enrolled for the mickey games?"),
-  async execute(interaction, db, mongoClient) {
-    const result = await getTributes(mongoClient, interaction, "tributes");
+  async execute(interaction, db) {
+    const result = await getTributes(interaction, "tributes");
 
     if (!result.length) return interaction.reply("There are no tributes");
     let p = result.map((p) => p.username);

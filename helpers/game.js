@@ -9,11 +9,14 @@ const {
   TextInputBuilder,
   TextInputStyle,
 } = require("discord.js");
+const fetch = require("node-fetch");
 const mongoClient = require("../database/mongodb");
 const { v4: uuidv4 } = require("uuid");
 const canvasHelper = require("../helpers/canvas");
+const buttons = require("../helpers/buttons");
 const db = require("../database");
-const { getBets, activateBets } = require("../helpers/queries");
+const { getBets, activateBets, createUser } = require("../helpers/queries");
+const reBrackets = /\(([^)]+)\)/;
 const bet = require("../commands/bet");
 
 function shuffleDistricts(array) {
@@ -47,28 +50,11 @@ async function generateTributes(players, districtSize) {
     name: "tributesPage.png",
   });
 
-  const uniqueId = uuidv4();
-
-  let row = new ActionRowBuilder()
-
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId("end" + uniqueId)
-        .setLabel("End Game")
-        .setStyle(ButtonStyle.Danger)
-    )
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId("random" + uniqueId)
-        .setLabel("Randomize Districts")
-        .setStyle(ButtonStyle.Primary)
-    )
-    .addComponents(
-      new ButtonBuilder()
-        .setCustomId("start" + uniqueId)
-        .setLabel("Start")
-        .setStyle(ButtonStyle.Success)
-    );
+  let row = new ActionRowBuilder().addComponents(
+    buttons.endButton,
+    buttons.randomButton,
+    buttons.startButton
+  );
 
   let districtSizeRow = new ActionRowBuilder().addComponents(
     new SelectMenuBuilder()
@@ -312,6 +298,27 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function validateAvatar(client, tribute) {
+  const res = await fetch(tribute.avatar, { method: "HEAD" });
+  if (res.status !== 200) {
+    const user = await client.users.fetch(tribute.id);
+    createUser(tribute.guild, "tributes", user);
+    tribute.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`;
+  }
+}
+
+async function getNames(text) {
+  let arr = text.split(/(?!\(.*)\s(?![^(]*?\))/g);
+  let args = [];
+  arr.map((word) => {
+    let check = reBrackets.exec(word);
+    if (check && !args.includes(check[1])) {
+      args.push(check[1]);
+    }
+  });
+  return args;
+}
+
 module.exports = {
   shuffleDistricts,
   tributesLeftAlive,
@@ -321,5 +328,7 @@ module.exports = {
   buildModal,
   placeBet,
   submitBet,
+  validateAvatar,
   sleep,
+  getNames,
 };

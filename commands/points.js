@@ -4,7 +4,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("points")
     .setDescription("View your points!"),
-  async execute(interaction, db, mongoClient) {
+  async execute(interaction, db) {
     let score;
     await db
       .query("SELECT * FROM scores WHERE username = $1 AND guild = $2", [

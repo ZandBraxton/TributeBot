@@ -1,12 +1,14 @@
-async function createUser(client, interaction, collection, user) {
-  await client.connect();
+const mongoClient = require("../database/mongodb");
 
-  const result = await client
+async function createUser(guildId, collection, user) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
     .db("hunger-games")
     .collection(collection)
     .updateOne(
       {
-        guild: interaction.guild.id,
+        guild: guildId,
         username: user.username,
       },
       {
@@ -17,7 +19,7 @@ async function createUser(client, interaction, collection, user) {
             collection === "cpu-tributes"
               ? user.avatar
               : `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`,
-          guild: interaction.guild.id,
+          guild: guildId,
           active: true,
         },
       },
@@ -26,10 +28,10 @@ async function createUser(client, interaction, collection, user) {
   return result;
 }
 
-async function getUser(client, interaction, collection, user) {
-  await client.connect();
+async function getUser(interaction, collection, user) {
+  await mongoClient.connect();
 
-  const result = await client
+  const result = await mongoClient
     .db("hunger-games")
     .collection(collection)
     .findOne({
@@ -40,10 +42,10 @@ async function getUser(client, interaction, collection, user) {
   return result;
 }
 
-async function getTributes(client, interaction, collection) {
-  await client.connect();
+async function getTributes(interaction, collection) {
+  await mongoClient.connect();
 
-  const result = await client
+  const result = await mongoClient
     .db("hunger-games")
     .collection(collection)
     .find({
@@ -54,10 +56,10 @@ async function getTributes(client, interaction, collection) {
   return result;
 }
 
-async function getBets(client, interaction, gameRunner) {
-  await client.connect();
+async function getBets(interaction, gameRunner) {
+  await mongoClient.connect();
 
-  const result = await client
+  const result = await mongoClient
     .db("hunger-games")
     .collection("active-tributes")
     .findOne({
@@ -67,10 +69,10 @@ async function getBets(client, interaction, gameRunner) {
   return result;
 }
 
-async function activateBets(client, interaction, gameRunner, dataSet) {
-  await client.connect();
+async function activateBets(interaction, gameRunner, dataSet) {
+  await mongoClient.connect();
 
-  const result = await client
+  const result = await mongoClient
     .db("hunger-games")
     .collection("active-tributes")
     .updateOne(
@@ -86,10 +88,10 @@ async function activateBets(client, interaction, gameRunner, dataSet) {
   return result;
 }
 
-async function activateTribute(client, interaction, dataSet) {
-  await client.connect();
+async function activateTribute(interaction, dataSet) {
+  await mongoClient.connect();
 
-  const result = await client
+  const result = await mongoClient
     .db("hunger-games")
     .collection("active-tributes")
     .updateOne(
@@ -105,10 +107,46 @@ async function activateTribute(client, interaction, dataSet) {
   return result;
 }
 
-async function activateCPU(client, interaction, cpuName) {
-  await client.connect();
+async function checkGameRunning(interaction) {
+  await mongoClient.connect();
 
-  const cpu = await client
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection("active-tributes")
+    .findOne(
+      {
+        guild: interaction.guild.id,
+        gameRunner: interaction.user.username,
+      },
+      { projection: { gameRunning: 1 } }
+    );
+  return result;
+}
+
+async function endGame(interaction) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection("active-tributes")
+    .updateOne(
+      {
+        guild: interaction.guild.id,
+        gameRunner: interaction.user.username,
+      },
+      {
+        $set: {
+          gameRunning: false,
+        },
+      }
+    );
+  return result;
+}
+
+async function activateCPU(interaction, cpuName) {
+  await mongoClient.connect();
+
+  const cpu = await mongoClient
     .db("hunger-games")
     .collection("cpu-tributes")
     .findOne({
@@ -117,7 +155,7 @@ async function activateCPU(client, interaction, cpuName) {
     });
   let status = !cpu.active;
 
-  await client
+  await mongoClient
     .db("hunger-games")
     .collection("cpu-tributes")
     .updateOne(
@@ -136,9 +174,9 @@ async function activateCPU(client, interaction, cpuName) {
   return status;
 }
 
-async function payout(client, interaction, db, winningDistrict) {
-  await client.connect();
-  const result = await getBets(client, interaction);
+async function payout(interaction, db, winningDistrict) {
+  await mongoClient.connect();
+  const result = await getBets(mongoClient, interaction);
 
   let bets = result.bets;
   let pool = result.pool;
@@ -204,10 +242,10 @@ async function payout(client, interaction, db, winningDistrict) {
   }
 }
 
-async function deleteUser(client, interaction, collection, user) {
-  await client.connect();
+async function deleteUser(interaction, collection, user) {
+  await mongoClient.connect();
 
-  const result = await client
+  const result = await mongoClient
     .db("hunger-games")
     .collection(collection)
     .deleteOne({
@@ -228,4 +266,6 @@ module.exports = {
   activateBets,
   activateCPU,
   payout,
+  endGame,
+  checkGameRunning,
 };

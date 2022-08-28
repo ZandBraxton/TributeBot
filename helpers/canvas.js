@@ -224,7 +224,7 @@ async function generateFallenTributes(deaths, announcementCount, deathMessage) {
   drawBackground(ctx, bgColor);
   drawHeaderText(
     ctx,
-    [deathMessage, `Fallen Tributes ${announcementCount}`],
+    [deathMessage, `Fallen Tributes #${announcementCount}`],
     "dead"
   );
 

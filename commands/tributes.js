@@ -7,12 +7,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("tributes")
     .setDescription("Gets a list of current tributes!"),
-  async execute(interaction, db, mongoClient) {
-    const result = await getTributes(
-      mongoClient,
-      interaction,
-      "active-tributes"
-    );
+  async execute(interaction, db) {
+    const result = await getTributes(interaction, "active-tributes");
     if (!result.length) return interaction.reply("There are no tributes");
 
     await interaction.deferReply({ ephemeral: true });

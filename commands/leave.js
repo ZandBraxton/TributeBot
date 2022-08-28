@@ -4,10 +4,10 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("leave-tribute")
     .setDescription("Leave the Mickey Games"),
-  async execute(interaction, db, mongoClient) {
+  async execute(interaction, db) {
     const user = interaction.user;
 
-    const result = await deleteUser(mongoClient, interaction, "tributes", user);
+    const result = await deleteUser(interaction, "tributes", user);
 
     if (result.deletedCount === 0) {
       interaction.reply("You have not joined!");

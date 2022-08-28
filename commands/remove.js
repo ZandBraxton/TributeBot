@@ -8,11 +8,11 @@ module.exports = {
     .addUserOption((option) =>
       option.setName("user").setDescription("Select a user")
     ),
-  async execute(interaction, db, mongoClient) {
+  async execute(interaction, db) {
     const user = await interaction.options.getUser("user");
 
     if (!user) return interaction.reply("You must specify a user!");
-    const result = await deleteUser(mongoClient, interaction, "tributes", user);
+    const result = await deleteUser(interaction, "tributes", user);
 
     if (result.deletedCount === 0) {
       interaction.reply(`${user.username} cannot be found!`);

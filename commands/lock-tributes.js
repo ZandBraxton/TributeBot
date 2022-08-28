@@ -17,7 +17,7 @@ module.exports = {
           { name: "Unlock", value: "unlock" }
         )
     ),
-  async execute(interaction, db, mongoClient, setLock) {
+  async execute(interaction, db, setLock) {
     if (interaction.options.getString("lock") === "lock") {
       setLock(true);
       return interaction.reply("Tributes have been locked!");

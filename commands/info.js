@@ -6,7 +6,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("info")
     .setDescription("List of commands"),
-  async execute(interaction, db, mongoClient) {
+  async execute(interaction, db) {
     const info = new EmbedBuilder()
       .setColor("#0099ff")
       .setTitle("Tributebot - A Hunger Games Simulator")

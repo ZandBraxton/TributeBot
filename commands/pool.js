@@ -5,8 +5,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("pool")
     .setDescription("View the current pool"),
-  async execute(interaction, db, mongoClient) {
-    const result = await getBets(mongoClient, interaction);
+  async execute(interaction, db) {
+    const result = await getBets(interaction);
 
     let bets = result.bets;
     let districtCount = result.districtCount;

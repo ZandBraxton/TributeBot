@@ -45,8 +45,8 @@ module.exports = {
         .setName("withdraw")
         .setDescription("Withdraw from the betting pool")
     ),
-  async execute(interaction, db, mongoClient) {
-    const result = await getBets(mongoClient, interaction);
+  async execute(interaction, db) {
+    const result = await getBets(interaction);
     let bet = result.bets;
     let districtCount = result.districtCount;
     let pool = result.pool;
@@ -62,7 +62,7 @@ module.exports = {
       bet = bet.filter((bet) => bet.username === interaction.username);
       pool -= found.amount;
 
-      await activateBets(mongoClient, interaction, {
+      await activateBets(interaction, {
         bets: bet,
         pool: pool,
       });
@@ -129,7 +129,7 @@ module.exports = {
       username: user.username,
     });
 
-    await activateBets(mongoClient, interaction, {
+    await activateBets(interaction, {
       bets: bet,
       pool: pool,
     });

@@ -43,7 +43,7 @@ module.exports = {
         .setName("remove-cpu")
         .setDescription("(Game Runners Only) Removes a CPU from stored CPU's")
     ),
-  async execute(interaction, db, mongoClient, setComponentActive) {
+  async execute(interaction, db, setComponentActive) {
     setComponentActive(true);
     const choice = interaction.options.getSubcommand();
 
@@ -144,8 +144,7 @@ module.exports = {
           buttonCollector.on("collect", async (interaction) => {
             if (interaction.customId.substring(0, 3) === "add") {
               const result = await createUser(
-                mongoClient,
-                interaction,
+                interaction.guild.id,
                 "cpu-tributes",
                 {
                   id: uniqueId,
@@ -185,11 +184,7 @@ module.exports = {
         }
       });
     } else {
-      const result = await getTributes(
-        mongoClient,
-        interaction,
-        "cpu-tributes"
-      );
+      const result = await getTributes(interaction, "cpu-tributes");
 
       if (!result.length) return interaction.reply("There are no cpu's");
 
@@ -254,7 +249,7 @@ module.exports = {
         }
 
         if (choice === "remove-cpu") {
-          await deleteUser(mongoClient, interaction, "cpu-tributes", {
+          await deleteUser(interaction, "cpu-tributes", {
             username: interaction.values[0],
             guild: interaction.guildId,
           });
@@ -263,11 +258,7 @@ module.exports = {
             `${interaction.values[0]} has been removed!`
           );
         } else {
-          let updateCpu = await activateCPU(
-            mongoClient,
-            interaction,
-            interaction.values[0]
-          );
+          let updateCpu = await activateCPU(interaction, interaction.values[0]);
           await interaction.channel.send(
             `Changed ${interaction.values[0]} status to ${
               updateCpu ? "Active" : "Inactive"

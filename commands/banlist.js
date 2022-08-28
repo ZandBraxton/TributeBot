@@ -40,9 +40,9 @@ module.exports = {
             .setRequired(true)
         )
     ),
-  async execute(interaction, db, mongoClient) {
+  async execute(interaction, db) {
     const choice = interaction.options.getSubcommand();
-    const banlist = await getTributes(mongoClient, interaction, "banlist");
+    const banlist = await getTributes(interaction, "banlist");
     console.log(banlist);
     if (choice === "view") {
       if (banlist.length === 0)
@@ -66,12 +66,7 @@ module.exports = {
 
       //if removing
       if (choice === "remove") {
-        const result = await deleteUser(
-          mongoClient,
-          interaction,
-          "banlist",
-          user
-        );
+        const result = await deleteUser(interaction, "banlist", user);
 
         if (result.deletedCount === 0) {
           interaction.reply(`${user.username} is not on the banlist!`);
@@ -83,22 +78,12 @@ module.exports = {
       } else {
         //if adding
         //check if user is part of tributes
-        const partOfTributes = await getUser(
-          mongoClient,
-          interaction,
-          "tributes",
-          user
-        );
+        const partOfTributes = await getUser(interaction, "tributes", user);
         if (partOfTributes) {
-          await deleteUser(mongoClient, interaction, "tributes", user);
+          await deleteUser(interaction, "tributes", user);
         }
 
-        const result = await createUser(
-          mongoClient,
-          interaction,
-          "banlist",
-          user
-        );
+        const result = await createUser(interaction.guild.id, "banlist", user);
         if (result.upsertedId === null) {
           interaction.reply(
             `User had already been added, updating profile information`

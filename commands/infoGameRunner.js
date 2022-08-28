@@ -6,7 +6,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("game-runner-info")
     .setDescription("(Game Runners Only) Useful commands for Game Runners"),
-  async execute(interaction, db, mongoClient) {
+  async execute(interaction, db) {
     const info = new EmbedBuilder()
       .setColor("#0099ff")
       .setTitle("Tributebot - A Hunger Games Simulator")

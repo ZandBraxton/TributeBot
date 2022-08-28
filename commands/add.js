@@ -8,10 +8,10 @@ module.exports = {
     .addUserOption((option) =>
       option.setName("user").setDescription("Select a user")
     ),
-  async execute(interaction, db, mongoClient) {
+  async execute(interaction, db) {
     const user = await interaction.options.getUser("user");
     if (!user) return interaction.reply("You must specify a user!");
-    const result = await createUser(mongoClient, interaction, "tributes", user);
+    const result = await createUser(interaction.guild.id, "tributes", user);
 
     if (result.upsertedId === null) {
       interaction.reply(
