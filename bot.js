@@ -16,6 +16,7 @@ const client = new Client({
 });
 const db = require("./database");
 const { submitBet } = require("./helpers/game");
+const { getHosts } = require("./helpers/queries");
 let betsOpen = false;
 let componentActive = false;
 let lock = false;
@@ -36,6 +37,8 @@ client.on("ready", () => {
   console.log("ready!");
 });
 
+let adminCommands = ["permission"];
+
 let permissionCommands = [
   "mickey-games",
   "add",
@@ -45,8 +48,6 @@ let permissionCommands = [
   "cpu",
   "game-runner-info",
 ];
-
-let allowedUsers = ["Bubbles"];
 
 // let oneAtATimeInteraction = ["mickey-games", "cpu"];
 
@@ -65,6 +66,28 @@ for (const file of commandFiles) {
 }
 
 client.on("interactionCreate", async (interaction) => {
+  if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
+    if (
+      interaction.commandName === "tributes" ||
+      interaction.commandName === "join-tribute" ||
+      interaction.commandName === "leave-tribute"
+    ) {
+      let choices = [];
+      const focusedOption = interaction.options.getFocused(true);
+      if (focusedOption.name === "game") {
+        try {
+          const result = await getHosts(interaction, "hosts");
+          result.map((user) => choices.push(user));
+          return await interaction.respond(
+            choices.map((user) => ({
+              name: user.username,
+              value: user.username,
+            }))
+          );
+        } catch (error) {}
+      }
+    }
+  }
   if (interaction.type === InteractionType.ModalSubmit) {
     console.log(interaction);
     try {
@@ -83,41 +106,31 @@ client.on("interactionCreate", async (interaction) => {
 
   const command = client.commands.get(interaction.commandName);
 
-  console.log(command);
-
-  if (command.data.name === "bet") {
-    if (betsOpen === false) {
-      return interaction.channel.send("Bets are currently closed!");
-    }
-  }
-
-  if (command.data.name === "lock-tributes") {
-    try {
-      await command.execute(interaction, db, setLock);
-    } catch (error) {
-      console.error(error);
-      await interaction.reply({
-        content: "There was an error while executing this command!",
-        ephemeral: true,
-      });
-    }
-    return;
-  }
-
-  if (command.data.name === "join-tribute") {
-    if (lock === true) {
-      return interaction.reply(
-        "Tributes are currently locked! Only Game Runners can add tributes at this time."
-      );
-    }
-  }
-
-  // if (oneAtATimeInteraction.includes(command.data.name)) {
-  //   if (componentActive === true)
-  //     return interaction.reply(
-  //       "You cannot call this while another command is active"
-  //     );
+  // if (command.data.name === "bet") {
+  //   if (betsOpen === false) {
+  //     return interaction.channel.send("Bets are currently closed!");
+  //   }
   // }
+
+  if (adminCommands.includes(command.data.name)) {
+    //If we want to make it role specific
+    // if (
+    //   !interaction.member.roles.cache.some(
+    //     (role) => role.name === "Mickey Master"
+    //   )
+    // )
+    const result = await getHosts(interaction, "hosts");
+
+    if (
+      !result.some(
+        (user) =>
+          user.username === interaction.user.username && user.admin === true
+      )
+    )
+      return interaction.reply(
+        "You do not have permission to use this command"
+      );
+  }
 
   if (permissionCommands.includes(command.data.name)) {
     //If we want to make it role specific
@@ -126,8 +139,12 @@ client.on("interactionCreate", async (interaction) => {
     //     (role) => role.name === "Mickey Master"
     //   )
     // )
+    const result = await getHosts(interaction, "hosts");
+    console.log(
+      result.some((user) => user.username === interaction.user.username)
+    );
 
-    if (!allowedUsers.includes(interaction.user.username))
+    if (!result.some((user) => user.username === interaction.user.username))
       return interaction.reply(
         "You do not have permission to use this command"
       );
@@ -136,13 +153,7 @@ client.on("interactionCreate", async (interaction) => {
   if (!command) return;
 
   try {
-    await command.execute(
-      interaction,
-      db,
-      setComponentActive,
-      setBetsOpen,
-      client
-    );
+    await command.execute(interaction, client);
   } catch (error) {
     console.error(error);
     await interaction.reply({

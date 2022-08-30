@@ -10,7 +10,7 @@ let districtSize;
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("mickey-games")
-    .setDescription("(Game Runners Only)  Set's up a new Mickey Games!")
+    .setDescription("(Hosts Only)  Set's up a new Mickey Games!")
     .addIntegerOption((option) =>
       option
         .setName("district-size")
@@ -21,10 +21,11 @@ module.exports = {
           { name: "4", value: 4 }
         )
     ),
-  async execute(interaction, db, setComponentActive, setBetsOpen, client) {
+  async execute(interaction, client) {
     await interaction.deferReply();
     const result = await checkGameRunning(interaction);
-    if (result.gameRunning === true) {
+    console.log(result);
+    if (result && result.gameRunning === true) {
       const row = new ActionRowBuilder().addComponents(
         buttons.newGame,
         buttons.cancelButton
@@ -40,17 +41,27 @@ module.exports = {
       districtSize = await interaction.options.getInteger("district-size");
       if (!districtSize) districtSize = 2;
 
-      let data = await getTributes(interaction, "tributes");
+      let data = await getTributes(
+        interaction,
+        "tributes",
+        interaction.user.username
+      );
 
       for (let i = 0; i < data.length; i++) {
         await validateAvatar(client, data[i]);
       }
-      let CPUdata = await getTributes(interaction, "cpu-tributes");
+      let CPUdata = await getTributes(
+        interaction,
+        "cpu-tributes",
+        interaction.user.username
+      );
       await CPUdata.map((cpu) => {
         if (cpu.active === true) {
           data.push(cpu);
         }
       });
+
+      console.log(data);
 
       if (!data) return interaction.editReply("Error setting up game!");
 

@@ -4,7 +4,7 @@ const { deleteUser } = require("../helpers/queries");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("remove")
-    .setDescription("(Game Runners Only) Removes a user from tributes")
+    .setDescription("(Hosts Only) Removes a user from tributes")
     .addUserOption((option) =>
       option.setName("user").setDescription("Select a user")
     ),
@@ -12,9 +12,9 @@ module.exports = {
     const user = await interaction.options.getUser("user");
 
     if (!user) return interaction.reply("You must specify a user!");
-    const result = await deleteUser(interaction, "tributes", user);
+    const result = await deleteUser(interaction, "tributes", user, null);
 
-    if (result.deletedCount === 0) {
+    if (result.modifiedCount === 0) {
       interaction.reply(`${user.username} cannot be found!`);
     } else {
       interaction.reply(`${user.username} has been removed!`);

@@ -1,6 +1,6 @@
 const mongoClient = require("../database/mongodb");
 
-async function createUser(guildId, collection, user) {
+async function createUser(interaction, collection, user) {
   await mongoClient.connect();
 
   const result = await mongoClient
@@ -8,7 +8,7 @@ async function createUser(guildId, collection, user) {
     .collection(collection)
     .updateOne(
       {
-        guild: guildId,
+        guild: interaction.guild.id,
         username: user.username,
       },
       {
@@ -19,12 +19,98 @@ async function createUser(guildId, collection, user) {
             collection === "cpu-tributes"
               ? user.avatar
               : `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`,
-          guild: guildId,
-          active: true,
+          guild: interaction.guild.id,
+        },
+
+        $addToSet: {
+          active: interaction.user.username,
         },
       },
       { upsert: true }
     );
+  return result;
+}
+
+async function updateHost(interaction, collection, user, bool, admin) {
+  await mongoClient.connect();
+
+  result = await mongoClient.db("hunger-games").collection(collection).findOne({
+    guild: interaction.guild.id,
+    username: user.username,
+  });
+  if (result) {
+    if (result.admin === true && interaction.user.username !== "Bubbles") {
+      return "Denied";
+    }
+  }
+
+  if (bool) {
+    return (result = await mongoClient
+      .db("hunger-games")
+      .collection(collection)
+      .updateOne(
+        {
+          guild: interaction.guild.id,
+          username: user.username,
+        },
+        {
+          $set: {
+            id: user.id,
+            username: user.username,
+            guild: interaction.guild.id,
+            admin: admin,
+            lockedTributes: false,
+          },
+        },
+        { upsert: true }
+      ));
+  } else {
+    return (result = await mongoClient
+      .db("hunger-games")
+      .collection(collection)
+      .deleteOne({
+        guild: interaction.guild.id,
+        username: user.username,
+      }));
+  }
+}
+
+async function setLock(interaction, bool) {
+  await mongoClient.connect();
+  await mongoClient
+    .db("hunger-games")
+    .collection("hosts")
+    .updateOne(
+      {
+        guild: interaction.guild.id,
+        username: interaction.user.username,
+      },
+      {
+        $set: {
+          lockedTributes: bool,
+        },
+      }
+    );
+}
+
+async function deleteUser(interaction, collection, user) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .updateOne(
+      {
+        guild: interaction.guild.id,
+        username: user.username,
+      },
+      {
+        $pull: {
+          active: interaction.user.username,
+        },
+      }
+    );
+
   return result;
 }
 
@@ -36,13 +122,13 @@ async function getUser(interaction, collection, user) {
     .collection(collection)
     .findOne({
       guild: interaction.guild.id,
-      username: user.username,
+      username: user,
     });
 
   return result;
 }
 
-async function getTributes(interaction, collection) {
+async function getHosts(interaction, collection) {
   await mongoClient.connect();
 
   const result = await mongoClient
@@ -50,6 +136,50 @@ async function getTributes(interaction, collection) {
     .collection(collection)
     .find({
       guild: interaction.guild.id,
+    })
+    .toArray();
+
+  return result;
+}
+
+async function getTributes(interaction, collection, gameRunner) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .find({
+      guild: interaction.guild.id,
+      active: { $in: [gameRunner] },
+    })
+    .toArray();
+
+  return result;
+}
+
+async function getEnrolled(interaction, collection) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .find({
+      guild: interaction.guild.id,
+    })
+    .toArray();
+
+  return result;
+}
+
+async function getActiveTributes(interaction, gameRunner) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection("active-tributes")
+    .find({
+      guild: interaction.guild.id,
+      gameRunner: gameRunner,
     })
     .toArray();
 
@@ -242,24 +372,14 @@ async function payout(interaction, db, winningDistrict) {
   }
 }
 
-async function deleteUser(interaction, collection, user) {
-  await mongoClient.connect();
-
-  const result = await mongoClient
-    .db("hunger-games")
-    .collection(collection)
-    .deleteOne({
-      guild: interaction.guild.id,
-      username: user.username,
-    });
-
-  return result;
-}
-
 module.exports = {
   createUser,
+  updateHost,
   deleteUser,
   getTributes,
+  getHosts,
+  getActiveTributes,
+  getEnrolled,
   getBets,
   getUser,
   activateTribute,
@@ -267,5 +387,6 @@ module.exports = {
   activateCPU,
   payout,
   endGame,
+  setLock,
   checkGameRunning,
 };

@@ -17,13 +17,7 @@ const {
   getNames,
 } = require("./game");
 
-const {
-  activateTribute,
-  activateBets,
-  getTributes,
-  payout,
-  endGame,
-} = require("./queries");
+const { activateTribute, activateBets, payout, endGame } = require("./queries");
 
 const canvasHelper = require("./canvas");
 const buttons = require("./buttons");
@@ -323,21 +317,6 @@ function gameOver(tributeData, districtSize) {
 
 async function collectorSwitch(interaction, gameState) {
   if (interaction.customId.substring(0, 6) === "random") {
-    if (interaction.values !== undefined) {
-      let ds = parseInt(interaction.values[0]);
-
-      if (ds === 3 && gameState.data.length < 6) {
-        return interaction.reply(
-          "You need at least six tributes to run teams of three"
-        );
-      }
-      if (ds === 4 && gameState.data.length < 8) {
-        return interaction.reply(
-          "You need at least eight tributes to run teams of four"
-        );
-      }
-      gameState.districtSize = parseInt(interaction.values[0]);
-    }
     //BETTING
     // await interaction.channel.send("Bets have refreshed!");
     await interaction.deferUpdate();
@@ -405,6 +384,7 @@ async function createCollector(interaction, gameState) {
   });
 
   collector.on("collect", async (interaction) => {
+    console.log(interaction);
     try {
       if (interaction.customId.substring(0, 3) === "end") {
         const row = new ActionRowBuilder().addComponents(
@@ -418,6 +398,24 @@ async function createCollector(interaction, gameState) {
 
         createEndCollector(interaction, gameState, gameMsg);
       } else {
+        if (interaction.customId.substring(0, 6) === "random") {
+          if (interaction.values !== undefined) {
+            let ds = parseInt(interaction.values[0]);
+
+            if (ds === 3 && gameState.data.length < 6) {
+              return interaction.channel.send(
+                "You need at least six tributes to run teams of three"
+              );
+            }
+            if (ds === 4 && gameState.data.length < 8) {
+              return interaction.channel.send(
+                "You need at least eight tributes to run teams of four"
+              );
+            }
+            gameState.districtSize = parseInt(interaction.values[0]);
+          }
+        }
+
         collectorSwitch(interaction, gameState);
         collector.stop();
       }

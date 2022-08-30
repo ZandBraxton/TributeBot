@@ -3,16 +3,29 @@ const { deleteUser } = require("../helpers/queries");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("leave-tribute")
-    .setDescription("Leave the Mickey Games"),
-  async execute(interaction, db) {
+    .setDescription("Leave the Mickey Games")
+    .addStringOption((option) =>
+      option
+        .setName("game")
+        .setDescription("Who's game do you want to leave?")
+        .setAutocomplete(true)
+        .setRequired(true)
+    ),
+  async execute(interaction) {
     const user = interaction.user;
+    const selectedHost = interaction.options.getString("game");
 
-    const result = await deleteUser(interaction, "tributes", user);
+    const result = await deleteUser(
+      interaction,
+      "tributes",
+      user,
+      selectedHost
+    );
 
-    if (result.deletedCount === 0) {
-      interaction.reply("You have not joined!");
+    if (result.modifiedCount === 0) {
+      interaction.reply(`User not found in tributes`);
     } else {
-      interaction.reply(`${user.username} has left the tributes!`);
+      interaction.reply(`${user.username} has left ${selectedHost}'s game`);
     }
   },
 };

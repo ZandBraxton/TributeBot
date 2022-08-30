@@ -17,7 +17,7 @@ const buttons = require("../helpers/buttons");
 const db = require("../database");
 const { getBets, activateBets, createUser } = require("../helpers/queries");
 const reBrackets = /\(([^)]+)\)/;
-const bet = require("../commands/bet");
+// const bet = require("../future/bet");
 
 function shuffleDistricts(array) {
   let currentIndex = array.length,

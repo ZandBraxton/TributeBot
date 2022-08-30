@@ -1,11 +1,11 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { getUser } = require("../helpers/queries");
+const { getUser, setLock } = require("../helpers/queries");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("lock-tributes")
     .setDescription(
-      "(Game Runners Only) Lock or unlock the command for users to join tributes"
+      "(Hosts Only) Lock/Unlock users being able to join your game"
     )
     .addStringOption((option) =>
       option
@@ -17,12 +17,12 @@ module.exports = {
           { name: "Unlock", value: "unlock" }
         )
     ),
-  async execute(interaction, db, setLock) {
+  async execute(interaction) {
     if (interaction.options.getString("lock") === "lock") {
-      setLock(true);
+      setLock(interaction, true);
       return interaction.reply("Tributes have been locked!");
     } else {
-      setLock(false);
+      setLock(interaction, false);
       return interaction.reply("Tributes have been unlocked!");
     }
   },

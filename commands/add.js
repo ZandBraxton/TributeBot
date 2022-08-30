@@ -1,24 +1,27 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { createUser } = require("../helpers/queries");
+const { createUser, getUser } = require("../helpers/queries");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("add")
-    .setDescription("(Game Runners Only) Add a user to the list of tributes")
+    .setDescription("(Host's Only) Add a user to the list of tributes")
     .addUserOption((option) =>
       option.setName("user").setDescription("Select a user")
     ),
-  async execute(interaction, db) {
+  async execute(interaction) {
     const user = await interaction.options.getUser("user");
     if (!user) return interaction.reply("You must specify a user!");
-    const result = await createUser(interaction.guild.id, "tributes", user);
 
-    if (result.upsertedId === null) {
+    const result = await createUser(interaction, "tributes", user, null);
+
+    if (result.upsertedId === null && result.modifiedCount === 0) {
       interaction.reply(
-        `User had already been added, updating profile information`
+        `${user.username} had already been added, updating profile information`
       );
     } else {
       interaction.reply(`Added ${user.username} to the tributes!`);
     }
   },
 };
+
+///someone
