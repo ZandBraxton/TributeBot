@@ -10,14 +10,16 @@ module.exports = {
     ),
   async execute(interaction, db) {
     const user = await interaction.options.getUser("user");
-
     if (!user) return interaction.reply("You must specify a user!");
+
     const result = await deleteUser(interaction, "tributes", user, null);
 
     if (result.modifiedCount === 0) {
       interaction.reply(`${user.username} cannot be found!`);
     } else {
-      interaction.reply(`${user.username} has been removed!`);
+      interaction.reply(
+        `${user.username} has been removed from ${interaction.user.username} tributes`
+      );
     }
   },
 };

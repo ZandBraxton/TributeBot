@@ -24,12 +24,13 @@ module.exports = {
       });
     }
 
-    // const banlist = await getUser(interaction, "banlist", user);
+    const banCheck = await getUser(interaction, "tributes", user.username);
+    console.log(banCheck);
 
-    // if (banlist)
-    //   return interaction.reply(
-    //     "You are currently banned from joining The Mickey Games"
-    //   );
+    if (banCheck.banned.includes(selectedHost))
+      return interaction.reply(
+        `You are currently banned from joining ${interaction.user.username}'s game`
+      );
 
     const result = await createUser(
       interaction,

@@ -4,272 +4,320 @@ const {
   SelectMenuBuilder,
   ActionRowBuilder,
   AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
 } = require("discord.js");
 const canvasHelper = require("../helpers/canvas");
 const { v4: uuidv4 } = require("uuid");
 const {
   getTributes,
   activateCPU,
+  deleteCPU,
   createUser,
-  deleteUser,
+  getEnrolled,
+  getUser,
 } = require("../helpers/queries");
+
+const buttons = require("../helpers/buttons");
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("cpu")
-    .setDescription("(Game Runners Only) placeholder")
+    .setDescription("(Hosts Only)")
     .addSubcommand((subcommand) =>
       subcommand
-        .setName("view-list")
-        .setDescription("(Game Runners Only) View the list of stored CPU's")
+        .setName("list")
+        .setDescription("(Hosts Only) View the list of stored CPU's")
     )
     .addSubcommand((subcommand) =>
       subcommand
-        .setName("store-cpu")
-        .setDescription(
-          "(Game Runners Only) Stores a CPU to a list of stored CPU's"
-        )
+        .setName("create")
+        .setDescription("(Hosts Only) Create and save a CPU")
         .addStringOption((option) =>
           option
             .setName("name")
             .setDescription("Name the cpu to be added!")
             .setRequired(true)
         )
-    )
-    .addSubcommand((subcommand) =>
-      subcommand
-        .setName("remove-cpu")
-        .setDescription("(Game Runners Only) Removes a CPU from stored CPU's")
+        .addAttachmentOption((option) =>
+          option
+            .setName("image")
+            .setDescription("Cpu's profile image")
+            .setRequired(true)
+        )
+        .addBooleanOption((option) =>
+          option
+            .setName("invisible")
+            .setDescription("Make preview invisible to other users?")
+            .setRequired(true)
+        )
     ),
-  async execute(interaction, db, setComponentActive) {
-    setComponentActive(true);
+  async execute(interaction) {
     const choice = interaction.options.getSubcommand();
 
-    if (choice === "store-cpu") {
+    if (choice === "create") {
       const username = await interaction.options.getString("name");
+      const attachment = interaction.options.getAttachment("image");
+      const preview = interaction.options.getBoolean("visible");
+      console.log(attachment);
+
       if (username.length > 14 || username.length <= 0) {
         return interaction.reply({
           content: "Name must be between 1-15 characters",
         });
       }
 
-      await interaction.reply(
-        'Upload the cpu\'s avatar, or type "end" to cancel this command'
-      );
-
-      const filter = (i) => {
-        return i.author.id === interaction.user.id;
-      };
-
-      const collector = interaction.channel.createMessageCollector({
-        filter,
-      });
-
-      collector.on("collect", async (interaction) => {
-        if (interaction.content === "end") {
-          await interaction.channel.send(`Cancelled`);
-          collector.stop();
-          setComponentActive(false);
-          return;
-        }
-
-        if (Array.from(interaction.attachments).length === 0) {
+      const cpuList = await getEnrolled(interaction, "cpu-tributes");
+      for (let i = 0; i < cpuList.length; i++) {
+        if (cpuList[i].username === username) {
           return interaction.reply({
-            content: "You must upload an image!",
-            ephemeral: true,
+            content: "A CPU with this name already exists!",
           });
         }
-        let img = Array.from(interaction.attachments);
+      }
 
-        let url = img[0][1].proxyURL;
+      const imgURL = attachment.proxyURL;
 
-        if (
-          url.substring(url.length - 3, url.length) === "jpg" ||
-          url.substring(url.length - 3, url.length) === "png" ||
-          url.substring(url.length - 4, url.length) === "jpeg"
-        ) {
-          const cpuEmbed = new EmbedBuilder()
-            .setTitle("CPU Preview")
-            .setImage("attachment://cpuImage.png")
-            .setColor("#5d5050");
+      if (
+        imgURL.substring(imgURL.length - 3, imgURL.length) === "jpg" ||
+        imgURL.substring(imgURL.length - 3, imgURL.length) === "png" ||
+        imgURL.substring(imgURL.length - 4, imgURL.length) === "jpeg"
+      ) {
+        const cpuEmbed = new EmbedBuilder()
+          .setTitle("CPU Preview")
+          .setImage("attachment://cpuImage.png")
+          .setColor("#5d5050");
 
-          const uniqueId = uuidv4();
+        const uniqueId = uuidv4();
 
-          const canvas = await canvasHelper.populateCPU([
-            {
-              id: uniqueId,
-              username: username,
-              avatar: url,
-              guild: interaction.guildId,
-            },
-          ]);
+        const canvas = await canvasHelper.populateCPU([
+          {
+            id: uniqueId,
+            username: username,
+            avatar: imgURL,
+            guild: interaction.guildId,
+          },
+        ]);
 
-          const attachment = new AttachmentBuilder(
-            canvas.toBuffer(),
-            "cpuImage.png"
-          );
-          const row = new ActionRowBuilder()
-            .addComponents(
-              new ButtonBuilder()
-                .setCustomId("add" + uniqueId)
-                .setLabel("Add CPU")
-                .setStyle(ButtonStyle.Success)
-            )
-            .addComponents(
-              new ButtonBuilder()
-                .setCustomId("cancel" + uniqueId)
-                .setLabel("Cancel")
-                .setStyle(ButtonStyle.Secondary)
-            );
+        const attachment = new AttachmentBuilder(canvas.toBuffer(), {
+          name: "cpuImage.png",
+        });
+        const row = new ActionRowBuilder().addComponents(
+          buttons.addCPU,
+          buttons.cancelButton
+        );
 
-          await interaction.channel.send({
-            embeds: [cpuEmbed],
-            files: [attachment],
-            components: [row],
-            ephemeral: true,
-          });
-          collector.stop();
+        await interaction.reply({
+          embeds: [cpuEmbed],
+          files: [attachment],
+          components: [row],
+          ephemeral: preview,
+        });
 
-          const buttonFilter = (i) => {
-            i.deferUpdate();
-            return i.user.id === interaction.user.id;
-          };
+        const reply = await interaction.fetchReply();
 
-          const buttonCollector =
-            await interaction.channel.createMessageComponentCollector({
-              buttonFilter,
-            });
-          buttonCollector.on("collect", async (interaction) => {
+        const filter = (i) => {
+          return i.user.id === interaction.user.id;
+        };
+
+        const collector = await reply.createMessageComponentCollector({
+          filter,
+        });
+
+        collector.on("collect", async (interaction) => {
+          try {
             if (interaction.customId.substring(0, 3) === "add") {
               const result = await createUser(
-                interaction.guild.id,
+                interaction,
                 "cpu-tributes",
                 {
                   id: uniqueId,
                   username: username,
-                  avatar: url,
+                  avatar: imgURL,
                   guild: interaction.guildId,
-                  active: true,
-                }
+                },
+                null
               );
 
-              if (result.upsertedId === null) {
-                await interaction.channel.send(
-                  `CPU had already been added, updating profile information`
-                );
+              if (result.upsertedId === null && result.modifiedCount === 0) {
+                await interaction.reply({
+                  content: `CPU had already been added, updating profile information`,
+                  ephemeral: true,
+                });
               } else {
-                await interaction.channel.send(
-                  `Successfully added ${username} to the list of CPU's!`
-                );
+                await interaction.reply({
+                  content: `Successfully added ${username} to the list of CPU's!`,
+                  ephemeral: true,
+                });
               }
-              await interaction.message.delete();
-              buttonCollector.stop();
-              setComponentActive(false);
+              reply.edit({ components: [] });
+              collector.stop();
             } else {
               //cancel
-              await interaction.message.delete();
-              await interaction.channel.send(`Cancelled`);
-              buttonCollector.stop();
-              setComponentActive(false);
+              reply.edit({ components: [] });
+              collector.stop();
             }
-          });
-        } else {
-          return interaction.reply({
-            content:
-              "This image type is not supported, only PNG and JPEG/JPG are accepted!",
-            ephemeral: true,
-          });
-        }
-      });
-    } else {
-      const result = await getTributes(interaction, "cpu-tributes");
-
-      if (!result.length) return interaction.reply("There are no cpu's");
-
-      let footerText;
-      if (choice === "view-list") {
-        footerText = "Do you wish to change the status of a CPU?";
+          } catch (error) {
+            console.log(error);
+          }
+        });
       } else {
-        footerText = "Select the CPU you would like to delete";
-      }
-
-      const cpuEmbed = new EmbedBuilder()
-        .setColor("#0099ff")
-        .setTitle("Stored CPU's")
-        .setFooter({ text: footerText });
-      const uniqueId = uuidv4();
-      const cpuRow = new SelectMenuBuilder()
-        .setCustomId("cpu + uniqueId")
-        .setPlaceholder("Stored CPU's");
-
-      const cpuRow2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("cancel" + uniqueId)
-          .setLabel("Close")
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-      for (const cpu of result) {
-        cpuRow.addOptions({
-          label: cpu.username,
-          value: cpu.username,
-          default: false,
-        });
-
-        cpuEmbed.addFields({
-          name: cpu.username,
-          value: `Status: ${cpu.active === true ? "Active" : "Inactive"}`,
+        return interaction.reply({
+          content:
+            "This image type is not supported, only PNG and JPEG/JPG are accepted!",
+          ephemeral: true,
         });
       }
+    } else {
+      const cpuList = await getEnrolled(interaction, "cpu-tributes");
+
+      if (!cpuList.length) return interaction.reply("There are no cpu's");
+
+      const embed = await generateCPUEmbed(cpuList[0], cpuList);
 
       interaction.reply({
-        embeds: [cpuEmbed],
-        components: [new ActionRowBuilder({ components: [cpuRow] }), cpuRow2],
+        embeds: [(await embed).cpuEmbed],
+        components: (await embed).components,
+        files: [(await embed).attachment],
       });
 
+      const reply = await interaction.fetchReply();
+
       const filter = (i) => {
-        i.deferUpdate();
         return i.user.id === interaction.user.id;
       };
 
-      const collector =
-        await interaction.channel.createMessageComponentCollector({
-          filter,
-          max: 1,
-        });
+      const collector = await reply.createMessageComponentCollector({
+        filter,
+      });
 
       collector.on("collect", async (interaction) => {
-        if (interaction.customId.substring(0, 6) === "cancel") {
-          await interaction.deleteReply();
+        if (interaction.customId === "cancel") {
+          await reply.delete();
           collector.stop();
-          setComponentActive(false);
           return;
-        }
+        } else if (interaction.customId === "status") {
+          await activateCPU(
+            interaction,
+            interaction.message.embeds[0].data.title
+          );
+          const cpu = await getUser(
+            interaction,
+            "cpu-tributes",
+            interaction.message.embeds[0].data.title
+          );
 
-        if (choice === "remove-cpu") {
-          await deleteUser(interaction, "cpu-tributes", {
-            username: interaction.values[0],
-            guild: interaction.guildId,
+          const embed = await generateCPUEmbed(cpu, cpuList);
+          await interaction.deferUpdate();
+          await interaction.editReply({
+            embeds: [embed.cpuEmbed],
+            components: embed.components,
+            files: [embed.attachment],
           });
-
-          await interaction.channel.send(
-            `${interaction.values[0]} has been removed!`
+        } else if (interaction.customId === "remove-cpu") {
+          const cpu = await getUser(
+            interaction,
+            "cpu-tributes",
+            interaction.message.embeds[0].data.title
           );
+          console.log(cpu.creator);
+          if (cpu.creator === interaction.user.username) {
+            //delete cpu
+            removeCPU(interaction, cpu);
+          } else {
+            //check if user is admin
+            const user = getUser(
+              interaction,
+              "hosts",
+              interaction.user.username
+            );
+            if (user.admin) {
+              removeCPU(interaction, cpu);
+            } else {
+              await interaction.deferUpdate();
+              interaction.followUp("You cannot delete another users CPU");
+            }
+          }
         } else {
-          let updateCpu = await activateCPU(interaction, interaction.values[0]);
-          await interaction.channel.send(
-            `Changed ${interaction.values[0]} status to ${
-              updateCpu ? "Active" : "Inactive"
-            }`
+          const cpu = await getUser(
+            interaction,
+            "cpu-tributes",
+            interaction.values[0]
           );
+          const embed = await generateCPUEmbed(cpu, cpuList);
+          await interaction.deferUpdate();
+          await interaction.editReply({
+            embeds: [embed.cpuEmbed],
+            components: embed.components,
+            files: [embed.attachment],
+          });
         }
-
-        await interaction.deleteReply();
-        collector.stop();
-        setComponentActive(false);
       });
     }
   },
 };
+
+async function generateCPUEmbed(cpu, cpuList) {
+  const components = [];
+  const cpuEmbed = new EmbedBuilder()
+    .setColor("#0099ff")
+    .setImage("attachment://cpuImage.png")
+    .setTitle(`${cpu.username}`);
+
+  cpuEmbed.addFields({
+    name: "Active Games",
+    value: cpu.active.length ? cpu.active.join(", ") : "No Active Games",
+  });
+
+  const cpuRow = new SelectMenuBuilder()
+    .setCustomId("cpu + uniqueId")
+    .setPlaceholder("Stored CPU's");
+
+  const buttonRow = new ActionRowBuilder().addComponents(
+    buttons.status,
+    buttons.removeCPU,
+    buttons.cancelButton
+  );
+
+  cpuList.map((cpu) => {
+    cpuRow.addOptions({
+      label: cpu.username,
+      value: cpu.username,
+      default: false,
+    });
+  });
+
+  const canvas = await canvasHelper.populateCPU([
+    {
+      id: cpu.id,
+      username: cpu.username,
+      avatar: cpu.avatar,
+      guild: cpu.guild,
+    },
+  ]);
+
+  const attachment = new AttachmentBuilder(canvas.toBuffer(), {
+    name: "cpuImage.png",
+  });
+  const selectCpuRow = new ActionRowBuilder().addComponents(cpuRow);
+
+  components.push(selectCpuRow, buttonRow);
+
+  console.log(cpuEmbed.data);
+
+  return { cpuEmbed, components, attachment };
+}
+
+async function removeCPU(interaction, cpu) {
+  await deleteCPU(interaction, "cpu-tributes", cpu);
+  const cpuList = await getEnrolled(interaction, "cpu-tributes");
+  await interaction.deferUpdate();
+  if (!cpuList.length) return interaction.editReply("There are no cpu's");
+
+  const embed = await generateCPUEmbed(cpuList[0], cpuList);
+
+  await interaction.deferUpdate();
+  await interaction.editReply({
+    embeds: [embed.cpuEmbed],
+    components: embed.components,
+    files: [embed.attachment],
+  });
+}

@@ -5,6 +5,9 @@ const {
   getTributes,
   deleteUser,
   createUser,
+  createBan,
+  removeBan,
+  getBanned,
 } = require("../helpers/queries");
 
 module.exports = {
@@ -12,15 +15,13 @@ module.exports = {
     .setName("banlist")
     .setDescription("Call to view banlist, or add a user ")
     .addSubcommand((subcommand) =>
-      subcommand
-        .setName("view")
-        .setDescription("(Game Runners Only) View the banlist")
+      subcommand.setName("view").setDescription("(Hosts Only) View the banlist")
     )
     .addSubcommand((subcommand) =>
       subcommand
         .setName("add")
         .setDescription(
-          "(Game Runners Only) Add a user to the banlist, preventing them from joining"
+          "(Hosts Only) Add a user to the banlist, preventing them from joining"
         )
         .addUserOption((option) =>
           option
@@ -32,7 +33,7 @@ module.exports = {
     .addSubcommand((subcommand) =>
       subcommand
         .setName("remove")
-        .setDescription("(Game Runners Only) Remove a user from the banlist")
+        .setDescription("(Hosts Only) Remove a user from the banlist")
         .addUserOption((option) =>
           option
             .setName("user")
@@ -40,10 +41,13 @@ module.exports = {
             .setRequired(true)
         )
     ),
-  async execute(interaction, db) {
+  async execute(interaction) {
     const choice = interaction.options.getSubcommand();
-    const banlist = await getTributes(interaction, "banlist");
-    console.log(banlist);
+    const banlist = await getBanned(
+      interaction,
+      "tributes",
+      interaction.user.username
+    );
     if (choice === "view") {
       if (banlist.length === 0)
         return interaction.reply("The banlist is empty");
@@ -51,7 +55,7 @@ module.exports = {
       let p = banlist.map((p) => p.username);
       const banlistEmbed = new EmbedBuilder()
         .setColor("#0099ff")
-        .setTitle("banlist Users")
+        .setTitle(`${interaction.user.username} - Banlist`)
         .addFields({
           name: "Users",
           value: p.join(", "),
@@ -66,30 +70,25 @@ module.exports = {
 
       //if removing
       if (choice === "remove") {
-        const result = await deleteUser(interaction, "banlist", user);
+        const result = await removeBan(interaction, "tributes", user);
 
-        if (result.deletedCount === 0) {
-          interaction.reply(`${user.username} is not on the banlist!`);
+        if (result.modifiedCount === 0) {
+          interaction.reply(`${user.username} is not on the banlist`);
         } else {
           interaction.reply(
-            `${user.username} has been removed from the banlist!`
+            `${user.username} has been removed from ${interaction.user.username}'s banlist`
           );
         }
       } else {
-        //if adding
-        //check if user is part of tributes
-        const partOfTributes = await getUser(interaction, "tributes", user);
-        if (partOfTributes) {
-          await deleteUser(interaction, "tributes", user);
-        }
+        await deleteUser(interaction, "tributes", user, null);
 
-        const result = await createUser(interaction.guild.id, "banlist", user);
-        if (result.upsertedId === null) {
-          interaction.reply(
-            `User had already been added, updating profile information`
-          );
+        const result = await createBan(interaction, "tributes", user);
+        if (result.upsertedId === null && result.modifiedCount === 0) {
+          interaction.reply(`${user.username} had already been banned`);
         } else {
-          interaction.reply(`Added ${user.username} to the banlist!`);
+          interaction.reply(
+            `Added ${user.username} to ${interaction.user.username}'s banlist`
+          );
         }
       }
     }

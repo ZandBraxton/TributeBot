@@ -1,6 +1,6 @@
 const mongoClient = require("../database/mongodb");
 
-async function createUser(interaction, collection, user) {
+async function createUser(interaction, collection, user, join) {
   await mongoClient.connect();
 
   const result = await mongoClient
@@ -15,19 +15,87 @@ async function createUser(interaction, collection, user) {
         $set: {
           id: user.id,
           username: user.username,
-          avatar:
-            collection === "cpu-tributes"
-              ? user.avatar
-              : `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`,
+          avatar: user.avatar,
           guild: interaction.guild.id,
+          creator:
+            collection === "cpu-tributes" ? interaction.user.username : null,
         },
 
         $addToSet: {
-          active: interaction.user.username,
+          active: join ? join : interaction.user.username,
         },
       },
       { upsert: true }
     );
+  return result;
+}
+
+async function deleteUser(interaction, collection, user, leave) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .updateOne(
+      {
+        guild: interaction.guild.id,
+        username: user.username,
+      },
+      {
+        $pull: {
+          active: leave ? leave : interaction.user.username,
+        },
+      }
+    );
+
+  return result;
+}
+
+async function createBan(interaction, collection, user) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .updateOne(
+      {
+        guild: interaction.guild.id,
+        username: user.username,
+      },
+      {
+        $set: {
+          id: user.id,
+          username: user.username,
+          guild: interaction.guild.id,
+        },
+
+        $addToSet: {
+          banned: interaction.user.username,
+        },
+      },
+      { upsert: true }
+    );
+  return result;
+}
+
+async function removeBan(interaction, collection, user) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .updateOne(
+      {
+        guild: interaction.guild.id,
+        username: user.username,
+      },
+      {
+        $pull: {
+          banned: interaction.user.username,
+        },
+      }
+    );
+
   return result;
 }
 
@@ -93,27 +161,6 @@ async function setLock(interaction, bool) {
     );
 }
 
-async function deleteUser(interaction, collection, user) {
-  await mongoClient.connect();
-
-  const result = await mongoClient
-    .db("hunger-games")
-    .collection(collection)
-    .updateOne(
-      {
-        guild: interaction.guild.id,
-        username: user.username,
-      },
-      {
-        $pull: {
-          active: interaction.user.username,
-        },
-      }
-    );
-
-  return result;
-}
-
 async function getUser(interaction, collection, user) {
   await mongoClient.connect();
 
@@ -142,7 +189,7 @@ async function getHosts(interaction, collection) {
   return result;
 }
 
-async function getTributes(interaction, collection, gameRunner) {
+async function getTributes(interaction, collection, host) {
   await mongoClient.connect();
 
   const result = await mongoClient
@@ -150,7 +197,22 @@ async function getTributes(interaction, collection, gameRunner) {
     .collection(collection)
     .find({
       guild: interaction.guild.id,
-      active: { $in: [gameRunner] },
+      active: { $in: [host] },
+    })
+    .toArray();
+
+  return result;
+}
+
+async function getBanned(interaction, collection, host) {
+  await mongoClient.connect();
+
+  const result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .find({
+      guild: interaction.guild.id,
+      banned: { $in: [host] },
     })
     .toArray();
 
@@ -283,25 +345,51 @@ async function activateCPU(interaction, cpuName) {
       guild: interaction.guild.id,
       username: cpuName,
     });
-  let status = !cpu.active;
-
-  await mongoClient
-    .db("hunger-games")
-    .collection("cpu-tributes")
-    .updateOne(
-      {
-        guild: interaction.guild.id,
-        username: cpuName,
-      },
-      {
-        $set: {
-          active: status,
+  console.log(cpu.active);
+  if (cpu.active.includes(interaction.user.username)) {
+    return await mongoClient
+      .db("hunger-games")
+      .collection("cpu-tributes")
+      .findOneAndUpdate(
+        {
+          guild: interaction.guild.id,
+          username: cpuName,
         },
-      },
-      { upsert: true }
-    );
+        {
+          $pull: {
+            active: interaction.user.username,
+          },
+        },
+        { upsert: true }
+      );
+  } else {
+    return await mongoClient
+      .db("hunger-games")
+      .collection("cpu-tributes")
+      .findOneAndUpdate(
+        {
+          guild: interaction.guild.id,
+          username: cpuName,
+        },
+        {
+          $addToSet: {
+            active: interaction.user.username,
+          },
+        },
+        { upsert: true }
+      );
+  }
+}
 
-  return status;
+async function deleteCPU(interaction, collection, cpu) {
+  await mongoClient.connect();
+  return (result = await mongoClient
+    .db("hunger-games")
+    .collection(collection)
+    .deleteOne({
+      guild: interaction.guild.id,
+      username: cpu.username,
+    }));
 }
 
 async function payout(interaction, db, winningDistrict) {
@@ -374,9 +462,12 @@ async function payout(interaction, db, winningDistrict) {
 
 module.exports = {
   createUser,
-  updateHost,
   deleteUser,
+  createBan,
+  removeBan,
+  updateHost,
   getTributes,
+  getBanned,
   getHosts,
   getActiveTributes,
   getEnrolled,
@@ -385,6 +476,7 @@ module.exports = {
   activateTribute,
   activateBets,
   activateCPU,
+  deleteCPU,
   payout,
   endGame,
   setLock,

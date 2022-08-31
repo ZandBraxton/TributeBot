@@ -51,6 +51,21 @@ const newGame = new ButtonBuilder()
   .setLabel("End Active Game")
   .setStyle(ButtonStyle.Success);
 
+const status = new ButtonBuilder()
+  .setCustomId("status")
+  .setLabel("Change Status")
+  .setStyle(ButtonStyle.Primary);
+
+const removeCPU = new ButtonBuilder()
+  .setCustomId("remove-cpu")
+  .setLabel("Delete CPU")
+  .setStyle(ButtonStyle.Danger);
+
+const addCPU = new ButtonBuilder()
+  .setCustomId("add")
+  .setLabel("Add CPU")
+  .setStyle(ButtonStyle.Success);
+
 module.exports = {
   destroyButton,
   cancelButton,
@@ -62,4 +77,7 @@ module.exports = {
   noDeathButton,
   randomButton,
   newGame,
+  status,
+  removeCPU,
+  addCPU,
 };
