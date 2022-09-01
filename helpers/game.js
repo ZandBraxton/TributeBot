@@ -218,6 +218,7 @@ async function submitBet(interaction) {
 function eventTrigger(
   events,
   tributeData,
+  deathChance,
   avatars,
   deaths,
   results,
@@ -228,7 +229,15 @@ function eventTrigger(
   for (const tribute of tributes) {
     if (!tributes.has(tribute)) continue;
 
-    const filteredEvents = events.filter(
+    let die = getRandomIntInclusive(0, 10);
+
+    if (die < deathChance && tributes.size > 1) {
+      die = "fatal";
+    } else {
+      die = "nonfatal";
+    }
+
+    const filteredEvents = events[die].filter(
       (event) => event.tributes <= tributes.size && event.deaths < tributes.size
     );
     const event =
@@ -314,6 +323,12 @@ async function getNames(text) {
   return args;
 }
 
+function getRandomIntInclusive(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
 module.exports = {
   shuffleDistricts,
   tributesLeftAlive,
@@ -326,4 +341,5 @@ module.exports = {
   validateAvatar,
   sleep,
   getNames,
+  getRandomIntInclusive,
 };

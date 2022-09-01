@@ -15,6 +15,7 @@ const {
   validateAvatar,
   placeBet,
   getNames,
+  getRandomIntInclusive,
 } = require("./game");
 
 const {
@@ -27,7 +28,15 @@ const {
 
 const canvasHelper = require("./canvas");
 const buttons = require("./buttons");
-const { bloodbath, day, night } = require("../events.json");
+const events = require("../events.json");
+const Round = {
+  BLOODBATH: "bloodbath",
+  DAY: "day",
+  NIGHT: "night",
+  FEAST: "feast",
+  ARENA: "arena",
+  FALLEN: "fallen",
+};
 
 async function setupGame(interaction, gameState) {
   gameState.tributes = [];
@@ -53,12 +62,11 @@ async function setupGame(interaction, gameState) {
     day: 1,
     roundsSinceEvent: 0,
     roundsWithoutDeath: 0,
-    dayCheck: false,
-    nightCheck: false,
-    bloodBathCheck: false,
-    fallenCheck: false,
-
-    turn: 0,
+    dayPassed: false,
+    nightPassed: false,
+    bloodBathPassed: false,
+    title: "",
+    desc: "",
     i: 0,
     announcementCount: 1,
     deaths: [],
@@ -137,43 +145,109 @@ async function setupGame(interaction, gameState) {
 // let RoundsSinceEvent
 // let RoundsWithoutDeath
 
-// feastChance = console.log(100 * (Math.pow(RoundsSinceEvent, 2) / 55.0) + (9.0 / 55.0));
-// deathChance = Math.random(2, 4) + RoundsWithoutDeath
-
 async function startTurn(interaction, gameState) {
-  if (!gameState.gameData[0].bloodBath && gameState.gameData[0].sun)
-    gameState.gameData[0].turn++;
+  let game = gameState.gameData[0];
+  if (game.nightPassed) {
+    game.day++;
+    game.dayPassed = false;
+    game.nightPassed = false;
+    game.fallenPassed = false;
+    game.roundsSinceEvent++;
+  }
+  let currentEvent;
+
+  let deathChance = getRandomIntInclusive(2, 4) + game.roundsWithoutDeath;
+  let eventType = false;
+
+  if (game.day === 1 && game.bloodBathPassed === false) {
+    //bloodbath
+    eventType = true;
+    currentEvent = events[Round.BLOODBATH];
+    deathChance += 2;
+  } else if (
+    !game.dayPassed &&
+    getRandomIntInclusive(0, 100) < getFeastChance(game.roundsSinceEvent)
+  ) {
+    //feast
+    eventType = true;
+    currentEvent = events[Round.FEAST];
+    game.roundsSinceEvent = 0;
+    deathChance += 2;
+  } else if (game.roundsSinceEvent > 0 && getRandomIntInclusive(1, 20) === 1) {
+    //arena event
+    eventType = "arena";
+
+    currentEvent =
+      events[Round.ARENA][
+        getRandomIntInclusive(0, events[Round.ARENA].length - 1)
+      ];
+    game.roundsSinceEvent = 0;
+    deathChance += 2;
+  } else if (!game.dayPassed) {
+    //day
+    currentEvent = events[Round.DAY];
+  } else {
+    //night
+    currentEvent = events[Round.NIGHT];
+  }
+
+  // if (!game.bloodBath && game.sun)
+  //   game.turn++;
+
+  game.title = currentEvent["title"];
+  game.desc = currentEvent["description"];
 
   const remainingTributes = tributesLeftAlive(gameState.tributes);
-  const currentEvent = gameState.gameData[0].bloodBath
-    ? bloodbath
-    : gameState.gameData[0].sun
-    ? day
-    : night;
+  // const currentEvent = game.bloodBath
+  //   ? bloodbath
+  //   : game.sun
+  //   ? day
+  //   : night;
 
   eventTrigger(
     currentEvent,
     remainingTributes,
-    gameState.gameData[0].avatars,
-    gameState.gameData[0].deaths,
-    gameState.gameData[0].results,
-    gameState.gameData[0].embedResultsText
+    deathChance,
+    game.avatars,
+    game.deaths,
+    game.results,
+    game.embedResultsText
   );
 
-  await runTurn(interaction, gameState);
+  gameState.gameData[0] = game;
+
+  if (!eventType) {
+    await runTurn(interaction, gameState);
+  } else {
+    await runEvent(interaction, gameState);
+  }
+}
+
+async function runEvent(interaction, gameState) {
+  let game = gameState.gameData[0];
+  const hungerGamesEmbed = new EmbedBuilder()
+    .setTitle(game.title)
+    .setColor("#5d5050")
+    .setDescription(game.desc);
+
+  const row = new ActionRowBuilder().addComponents(
+    buttons.endButton,
+    buttons.nextButton
+  );
+
+  await interaction.editReply({
+    embeds: [hungerGamesEmbed],
+    components: [row],
+  });
+  createCollector(interaction, gameState);
 }
 
 async function runTurn(interaction, gameState) {
-  const eventText = `${
-    gameState.gameData[0].bloodBath
-      ? "Bloodbath"
-      : gameState.gameData[0].sun
-      ? `Day ${gameState.gameData[0].turn}`
-      : `Night ${gameState.gameData[0].turn}`
-  }`;
+  let game = gameState.gameData[0];
+  const eventText = game.desc ? game.title : `${game.title} ${game.day}`;
 
   const hungerGamesEmbed = new EmbedBuilder()
-    .setTitle(`${gameState.gameData[0].gameRunner}'s Game - ${eventText}`)
+    .setTitle(`${game.gameRunner}'s Game - ${eventText}`)
     .setColor("#5d5050");
 
   const row = new ActionRowBuilder().addComponents(
@@ -183,24 +257,24 @@ async function runTurn(interaction, gameState) {
 
   const eventImage = await canvasHelper.generateEventImage(
     eventText,
-    gameState.gameData[0].results[gameState.gameData[0].i],
-    gameState.gameData[0].avatars[gameState.gameData[0].i]
+    game.results[game.i],
+    game.avatars[game.i]
   );
 
   const eventAttachment = new AttachmentBuilder(eventImage.toBuffer(), {
     name: "currentEvent.png",
   });
 
-  const names = getNames(
-    gameState.gameData[0].results[gameState.gameData[0].i]
-  );
+  const names = getNames(game.results[game.i]);
 
   hungerGamesEmbed.setImage("attachment://currentEvent.png");
   hungerGamesEmbed.setFooter({
     text: (await names).join(", "),
   });
 
-  gameState.gameData[0].i++;
+  game.i++;
+
+  gameState.gameData[0] = game;
 
   if (gameState.gameData[0].i === gameState.gameData[0].results.length) {
     const row2 = new ActionRowBuilder().addComponents(
@@ -234,17 +308,16 @@ async function showFallenTributes(interaction, gameState) {
     guild: interaction.guild.id,
     tributeData: gameState.tributes,
   });
+  let game = gameState.gameData[0];
 
-  if (gameState.gameData[0].deaths.length) {
-    const deathMessage = `${gameState.gameData[0].deaths.length} cannon shot${
-      gameState.gameData[0].deaths.length === 1 ? "" : "s"
+  if (game.deaths.length) {
+    const deathMessage = `${game.deaths.length} cannon shot${
+      game.deaths.length === 1 ? "" : "s"
     } can be heard in the distance.`;
-    const deathList = gameState.gameData[0].deaths
-      .map((trib) => `<@${trib.id}>`)
-      .join("\n");
+    const deathList = game.deaths.map((trib) => `<@${trib.id}>`).join("\n");
     const deathImage = await canvasHelper.generateFallenTributes(
-      gameState.gameData[0].deaths,
-      gameState.gameData[0].announcementCount,
+      game.deaths,
+      game.announcementCount,
       deathMessage
     );
 
@@ -258,7 +331,7 @@ async function showFallenTributes(interaction, gameState) {
     );
 
     const deadTributesEmbed = new EmbedBuilder()
-      .setTitle(`${gameState.gameData[0].gameRunner}'s Game - Fallen Tributes`)
+      .setTitle(`${game.gameRunner}'s Game - Fallen Tributes`)
       .setImage("attachment://deadTributes.png")
       .setDescription(`\n${deathMessage}\n\n${deathList}`)
       .setColor("#5d5050");
@@ -304,30 +377,12 @@ async function showFallenTributes(interaction, gameState) {
       // });
     }
 
-    if (!gameState.gameData[0].bloodBath)
-      gameState.gameData[0].sun = !gameState.gameData[0].sun;
-
-    if (gameState.gameData[0].bloodBath)
-      gameState.gameData[0].bloodBath = false;
-    gameState.gameData[0].deaths = [];
-    gameState.gameData[0].results = [];
-    gameState.gameData[0].embedResultsText = [];
-    gameState.gameData[0].avatars = [];
-    gameState.gameData[0].i = 0;
-    gameState.gameData[0].announcementCount++;
-
+    await refresh(game, true);
+    gameState.gameData[0] = game;
     createCollector(interaction, gameState);
   } else {
-    if (!gameState.gameData[0].bloodBath)
-      gameState.gameData[0].sun = !gameState.gameData[0].sun;
-
-    if (gameState.gameData[0].bloodBath)
-      gameState.gameData[0].bloodBath = false;
-    gameState.gameData[0].deaths = [];
-    gameState.gameData[0].results = [];
-    gameState.gameData[0].embedResultsText = [];
-    gameState.gameData[0].avatars = [];
-    gameState.gameData[0].i = 0;
+    await refresh(game, false);
+    gameState.gameData[0] = game;
     await startTurn(interaction, gameState);
   }
 }
@@ -345,6 +400,26 @@ function gameOver(tributeData, districtSize) {
       return tributesRemaining.every((tribute) => tribute.district === check);
     }
   } else return false;
+}
+
+async function refresh(game, fallen) {
+  if (!game.bloodBathPassed) {
+    game.bloodBathPassed = true;
+  } else if (!game.dayPassed) {
+    game.dayPassed = true;
+  } else game.nightPassed = true;
+
+  game.deaths = [];
+  game.results = [];
+  game.embedResultsText = [];
+  game.avatars = [];
+  game.i = 0;
+  if (fallen) {
+    game.roundsWithoutDeath = 0;
+    game.announcementCount++;
+  } else {
+    game.roundsWithoutDeath++;
+  }
 }
 
 async function collectorSwitch(interaction, gameState) {
@@ -500,6 +575,10 @@ async function IsGameRunning(interaction, message, collector) {
     }
   }
   return bool;
+}
+
+function getFeastChance(RoundsSinceEvent) {
+  return 100 * (Math.pow(RoundsSinceEvent, 2) / 55.0) + 9.0 / 55.0;
 }
 
 module.exports = { createNewGameCollector, setupGame };
