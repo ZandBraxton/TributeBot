@@ -302,11 +302,11 @@ async function sleep(ms) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function validateAvatar(client, tribute) {
+async function validateAvatar(client, interaction, tribute) {
   const res = await fetch(tribute.avatar, { method: "HEAD" });
   if (res.status !== 200) {
     const user = await client.users.fetch(tribute.id);
-    createUser(tribute.guild, "tributes", user);
+    createUser(interaction, "tributes", user, null);
     tribute.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`;
   }
 }

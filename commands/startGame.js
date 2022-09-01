@@ -47,7 +47,7 @@ module.exports = {
       );
 
       for (let i = 0; i < data.length; i++) {
-        await validateAvatar(client, data[i]);
+        await validateAvatar(client, interaction, data[i]);
       }
       let CPUdata = await getTributes(
         interaction,
