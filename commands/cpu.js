@@ -56,7 +56,7 @@ module.exports = {
     if (choice === "create") {
       const username = await interaction.options.getString("name");
       const attachment = interaction.options.getAttachment("image");
-      const preview = interaction.options.getBoolean("visible");
+      const preview = interaction.options.getBoolean("invisible");
 
       if (username.length > 14 || username.length <= 0) {
         return interaction.reply({
@@ -147,11 +147,15 @@ module.exports = {
                   ephemeral: true,
                 });
               }
-              reply.edit({ components: [] });
+              if (!preview) {
+                reply.edit({ components: [] });
+              }
               collector.stop();
             } else {
               //cancel
-              reply.edit({ components: [] });
+              if (!preview) {
+                reply.edit({ components: [] });
+              }
               collector.stop();
             }
           } catch (error) {
@@ -313,7 +317,15 @@ async function generateCPUEmbed(cpu, cpuList) {
 async function removeCPU(interaction, cpu) {
   await deleteCPU(interaction, "cpu-tributes", cpu);
   const cpuList = await getEnrolled(interaction, "cpu-tributes");
-  if (!cpuList.length) return interaction.editReply("There are no cpu's");
+  if (!cpuList.length) {
+    await interaction.deferUpdate();
+    return interaction.editReply({
+      content: "There are no CPU's",
+      embeds: [],
+      components: [],
+      files: [],
+    });
+  }
 
   const embed = await generateCPUEmbed(cpuList[0], cpuList);
 
