@@ -2,6 +2,14 @@ const mongoClient = require("../database/mongodb");
 
 async function createUser(interaction, collection, user, join) {
   await mongoClient.connect();
+  if (collection !== "cpu-tributes") {
+    if (user.avatar === null || user.avatar === undefined) {
+      user.avatar =
+        "https://icon-library.com/images/blue-discord-icon/blue-discord-icon-15.jpg";
+    } else {
+      user.avatar = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`;
+    }
+  }
 
   const result = await mongoClient
     .db("hunger-games")
@@ -15,10 +23,7 @@ async function createUser(interaction, collection, user, join) {
         $set: {
           id: user.id,
           username: user.username,
-          avatar:
-            collection === "cpu-tributes"
-              ? user.avatar
-              : `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`,
+          avatar: user.avatar,
           guild: interaction.guild.id,
           creator:
             collection === "cpu-tributes" ? interaction.user.username : null,
