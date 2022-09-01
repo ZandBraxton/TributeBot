@@ -12,7 +12,7 @@ module.exports = {
         .setAutocomplete(true)
         .setRequired(true)
     ),
-  async execute(interaction, db) {
+  async execute(interaction) {
     const user = interaction.user;
     const selectedHost = interaction.options.getString("game");
 
@@ -25,12 +25,15 @@ module.exports = {
     }
 
     const banCheck = await getUser(interaction, "tributes", user.username);
-    console.log(banCheck);
 
-    if (banCheck.banned.includes(selectedHost))
-      return interaction.reply(
-        `You are currently banned from joining ${interaction.user.username}'s game`
-      );
+    if (banCheck) {
+      if (banCheck.banned) {
+        if (banCheck.banned.includes(selectedHost))
+          return interaction.reply(
+            `You are currently banned from joining ${interaction.user.username}'s game`
+          );
+      }
+    }
 
     const result = await createUser(
       interaction,

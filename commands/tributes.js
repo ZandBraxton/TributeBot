@@ -15,7 +15,7 @@ module.exports = {
         .setAutocomplete(true)
         .setRequired(true)
     ),
-  async execute(interaction, db) {
+  async execute(interaction) {
     const host = interaction.options.getString("game");
     const result = await getActiveTributes(interaction, host);
     if (!result.length) return interaction.reply("There are no tributes");

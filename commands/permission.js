@@ -3,7 +3,7 @@ const { updateHost } = require("../helpers/queries");
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName("permission")
+    .setName("host")
     .setDescription("(Admins Only) Grants/Removes the ability to host games")
     .addUserOption((option) =>
       option.setName("user").setDescription("Select a user")
@@ -16,7 +16,6 @@ module.exports = {
     const boolean = interaction.options.getBoolean("permission");
 
     const result = await updateHost(interaction, "hosts", user, boolean, false);
-    console.log(result);
 
     if (result === "Denied") {
       interaction.reply(`You cannot change an Admins permission`);

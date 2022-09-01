@@ -10,7 +10,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("enrolled")
     .setDescription("Who's enrolled for the mickey games?"),
-  async execute(interaction, db) {
+  async execute(interaction) {
     const result = await getEnrolled(interaction, "tributes");
 
     if (!result.length) return interaction.reply("There are no tributes");
@@ -26,6 +26,12 @@ module.exports = {
         }
       });
     });
+    if (Object.keys(gameRunners).length === 0) {
+      return interaction.reply({
+        content: "There is nobody enrolled",
+        ephemeral: true,
+      });
+    }
     const enrolledRow = new SelectMenuBuilder()
       .setCustomId("gameRunners")
       .setPlaceholder("Other Games");

@@ -82,7 +82,6 @@ async function generateTributes(players, districtSize) {
 }
 
 async function betComponents(interaction) {
-  console.log(interaction);
   const components = [];
   // const bettingRow = new SelectMenuBuilder()
   // bettingRow.setCustomId("bet").setPlaceholder(`Districts 1-${districtCount}`)
@@ -115,8 +114,6 @@ async function placeBet(i, districtCount, gameRunner) {
       i.guild.id,
     ])
     .then((res) => (points = res.rows[0].points));
-
-  console.log(points);
 
   const modal = new ModalBuilder()
     .setCustomId(gameRunner)
@@ -171,8 +168,6 @@ async function submitBet(interaction) {
       ephemeral: true,
     });
   }
-  console.log(interaction.customId);
-  console.log(result);
 
   let points;
   await db

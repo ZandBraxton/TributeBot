@@ -13,11 +13,14 @@ module.exports = {
     if (!user) return interaction.reply("You must specify a user!");
 
     const banCheck = await getUser(interaction, "tributes", user.username);
-
-    if (banCheck.banned.includes(interaction.user.username))
-      return interaction.reply(
-        `${user.username} is currently banned from joining this game`
-      );
+    if (banCheck) {
+      if (banCheck.banned) {
+        if (banCheck.banned.includes(interaction.user.username))
+          return interaction.reply(
+            `${user.username} is currently banned from joining this game`
+          );
+      }
+    }
 
     const result = await createUser(interaction, "tributes", user, null);
 

@@ -15,7 +15,10 @@ async function createUser(interaction, collection, user, join) {
         $set: {
           id: user.id,
           username: user.username,
-          avatar: user.avatar,
+          avatar:
+            collection === "cpu-tributes"
+              ? user.avatar
+              : `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.jpeg`,
           guild: interaction.guild.id,
           creator:
             collection === "cpu-tributes" ? interaction.user.username : null,
@@ -133,6 +136,25 @@ async function updateHost(interaction, collection, user, bool, admin) {
         { upsert: true }
       ));
   } else {
+    //kill game
+    await destroyGame(interaction, user.username);
+
+    //flush tributes
+    let tributes = await getTributes(interaction, "tributes", user.username);
+
+    for (let i = 0; i < tributes.length; i++) {
+      tempInteraction = {
+        guild: {
+          id: interaction.guild.id,
+        },
+        user: {
+          username: user.username,
+        },
+      };
+      await deleteUser(tempInteraction, "tributes", tributes[i], null);
+    }
+
+    //delete perm
     return (result = await mongoClient
       .db("hunger-games")
       .collection(collection)
@@ -159,6 +181,14 @@ async function setLock(interaction, bool) {
         },
       }
     );
+}
+
+async function destroyGame(interaction, host) {
+  await mongoClient.connect();
+  await mongoClient.db("hunger-games").collection("active-tributes").deleteOne({
+    guild: interaction.guild.id,
+    gameRunner: host,
+  });
 }
 
 async function getUser(interaction, collection, user) {
@@ -345,7 +375,6 @@ async function activateCPU(interaction, cpuName) {
       guild: interaction.guild.id,
       username: cpuName,
     });
-  console.log(cpu.active);
   if (cpu.active.includes(interaction.user.username)) {
     return await mongoClient
       .db("hunger-games")

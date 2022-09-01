@@ -17,7 +17,13 @@ const {
   getNames,
 } = require("./game");
 
-const { activateTribute, activateBets, payout, endGame } = require("./queries");
+const {
+  activateTribute,
+  activateBets,
+  payout,
+  checkGameRunning,
+  endGame,
+} = require("./queries");
 
 const canvasHelper = require("./canvas");
 const buttons = require("./buttons");
@@ -29,10 +35,29 @@ async function setupGame(interaction, gameState) {
     gameState.data = shuffleDistricts(gameState.data);
   }
 
+  // gameState.gameData.push({
+  //   startGame: true,
+  //   bloodBath: true,
+  //   sun: true,
+  //   turn: 0,
+  //   i: 0,
+  //   announcementCount: 1,
+  //   deaths: [],
+  //   results: [],
+  //   embedResultsText: [],
+  //   avatars: [],
+  //   gameRunner: interaction.user.username,
+  // });
+
   gameState.gameData.push({
-    startGame: true,
-    bloodBath: true,
-    sun: true,
+    day: 1,
+    roundsSinceEvent: 0,
+    roundsWithoutDeath: 0,
+    dayCheck: false,
+    nightCheck: false,
+    bloodBathCheck: false,
+    fallenCheck: false,
+
     turn: 0,
     i: 0,
     announcementCount: 1,
@@ -108,6 +133,12 @@ async function setupGame(interaction, gameState) {
 
   createCollector(interaction, gameState);
 }
+
+// let RoundsSinceEvent
+// let RoundsWithoutDeath
+
+// feastChance = console.log(100 * (Math.pow(RoundsSinceEvent, 2) / 55.0) + (9.0 / 55.0));
+// deathChance = Math.random(2, 4) + RoundsWithoutDeath
 
 async function startTurn(interaction, gameState) {
   if (!gameState.gameData[0].bloodBath && gameState.gameData[0].sun)
@@ -242,7 +273,9 @@ async function showFallenTributes(interaction, gameState) {
 
     if (gameEnd === true) {
       const tributesLeft = tributesLeftAlive(gameState.tributes);
-      const winner = tributesLeft.map((trib) => `${trib.name}`).join(" and ");
+      const winner = tributesLeft
+        .map((trib) => `${trib.username}`)
+        .join(" and ");
       const winnerText = tributesLeft.length > 1 ? `winners are` : `winner is`;
 
       const winnerImage = await canvasHelper.generateWinnerImage(tributesLeft);
@@ -257,7 +290,7 @@ async function showFallenTributes(interaction, gameState) {
         )
         .setImage("attachment://winner.png")
         .setColor("#5d5050");
-      await interaction.editReply({
+      await interaction.followUp({
         embeds: [winnerEmbed],
         files: [winAttachment],
       });
@@ -295,7 +328,6 @@ async function showFallenTributes(interaction, gameState) {
     gameState.gameData[0].embedResultsText = [];
     gameState.gameData[0].avatars = [];
     gameState.gameData[0].i = 0;
-    await interaction.deferReply();
     await startTurn(interaction, gameState);
   }
 }
@@ -353,6 +385,9 @@ async function createEndCollector(interaction, gameState, gameMsg) {
   });
 
   collector.on("collect", async (interaction) => {
+    if (!(await IsGameRunning(interaction, endMsg, collector))) {
+      return;
+    }
     try {
       if (interaction.customId.substring(0, 7) === "destroy") {
         await gameMsg.edit({
@@ -384,7 +419,9 @@ async function createCollector(interaction, gameState) {
   });
 
   collector.on("collect", async (interaction) => {
-    console.log(interaction);
+    if (!(await IsGameRunning(interaction, gameMsg, collector))) {
+      return;
+    }
     try {
       if (interaction.customId.substring(0, 3) === "end") {
         const row = new ActionRowBuilder().addComponents(
@@ -415,7 +452,6 @@ async function createCollector(interaction, gameState) {
             gameState.districtSize = parseInt(interaction.values[0]);
           }
         }
-
         collectorSwitch(interaction, gameState);
         collector.stop();
       }
@@ -446,6 +482,24 @@ async function createNewGameCollector(interaction) {
       newGameMsg.delete();
     }
   });
+}
+
+async function IsGameRunning(interaction, message, collector) {
+  const IsRunning = await checkGameRunning(interaction);
+  let bool = true;
+  if (!IsRunning) {
+    bool = false;
+  } else {
+    if (IsRunning.gameRunning === false) {
+      message.edit({
+        content: "Game has been terminated",
+        components: [],
+      });
+      collector.stop();
+      bool = false;
+    }
+  }
+  return bool;
 }
 
 module.exports = { createNewGameCollector, setupGame };

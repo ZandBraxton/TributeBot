@@ -43,6 +43,7 @@ let permissionCommands = [
   "mickey-games",
   "add",
   "remove",
+  "flush",
   "lock-tributes",
   "banlist",
   "cpu",
@@ -89,7 +90,6 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
   if (interaction.type === InteractionType.ModalSubmit) {
-    console.log(interaction);
     try {
       await submitBet(interaction);
     } catch (error) {
@@ -140,9 +140,6 @@ client.on("interactionCreate", async (interaction) => {
     //   )
     // )
     const result = await getHosts(interaction, "hosts");
-    console.log(
-      result.some((user) => user.username === interaction.user.username)
-    );
 
     if (!result.some((user) => user.username === interaction.user.username))
       return interaction.reply(
@@ -156,10 +153,18 @@ client.on("interactionCreate", async (interaction) => {
     await command.execute(interaction, client);
   } catch (error) {
     console.error(error);
-    await interaction.reply({
-      content: "There was an error while executing this command!",
-      ephemeral: true,
-    });
+    try {
+      await interaction.reply({
+        content: "There was an error while executing this command!",
+        ephemeral: true,
+      });
+    } catch (error) {
+      console.log(error);
+      await interaction.editReply({
+        content: "There was an error while executing this command!",
+        ephemeral: true,
+      });
+    }
   }
 });
 

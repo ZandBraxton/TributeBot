@@ -21,7 +21,6 @@ module.exports = {
     const boolean = interaction.options.getBoolean("permission");
 
     const result = await updateHost(interaction, "hosts", user, boolean, true);
-    console.log(result);
 
     if (result.upsertedId === null && result.modifiedCount === 0) {
       interaction.reply(

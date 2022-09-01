@@ -57,7 +57,6 @@ module.exports = {
       const username = await interaction.options.getString("name");
       const attachment = interaction.options.getAttachment("image");
       const preview = interaction.options.getBoolean("visible");
-      console.log(attachment);
 
       if (username.length > 14 || username.length <= 0) {
         return interaction.reply({
@@ -167,90 +166,97 @@ module.exports = {
         });
       }
     } else {
-      const cpuList = await getEnrolled(interaction, "cpu-tributes");
+      try {
+        const cpuList = await getEnrolled(interaction, "cpu-tributes");
 
-      if (!cpuList.length) return interaction.reply("There are no cpu's");
+        if (!cpuList.length) return interaction.reply("There are no cpu's");
 
-      const embed = await generateCPUEmbed(cpuList[0], cpuList);
+        const embed = await generateCPUEmbed(cpuList[0], cpuList);
 
-      interaction.reply({
-        embeds: [(await embed).cpuEmbed],
-        components: (await embed).components,
-        files: [(await embed).attachment],
-      });
+        interaction.reply({
+          embeds: [(await embed).cpuEmbed],
+          components: (await embed).components,
+          files: [(await embed).attachment],
+        });
 
-      const reply = await interaction.fetchReply();
+        const reply = await interaction.fetchReply();
 
-      const filter = (i) => {
-        return i.user.id === interaction.user.id;
-      };
+        const filter = (i) => {
+          return i.user.id === interaction.user.id;
+        };
 
-      const collector = await reply.createMessageComponentCollector({
-        filter,
-      });
+        const collector = await reply.createMessageComponentCollector({
+          filter,
+        });
 
-      collector.on("collect", async (interaction) => {
-        if (interaction.customId === "cancel") {
-          await reply.delete();
-          collector.stop();
-          return;
-        } else if (interaction.customId === "status") {
-          await activateCPU(
-            interaction,
-            interaction.message.embeds[0].data.title
-          );
-          const cpu = await getUser(
-            interaction,
-            "cpu-tributes",
-            interaction.message.embeds[0].data.title
-          );
-
-          const embed = await generateCPUEmbed(cpu, cpuList);
-          await interaction.deferUpdate();
-          await interaction.editReply({
-            embeds: [embed.cpuEmbed],
-            components: embed.components,
-            files: [embed.attachment],
-          });
-        } else if (interaction.customId === "remove-cpu") {
-          const cpu = await getUser(
-            interaction,
-            "cpu-tributes",
-            interaction.message.embeds[0].data.title
-          );
-          console.log(cpu.creator);
-          if (cpu.creator === interaction.user.username) {
-            //delete cpu
-            removeCPU(interaction, cpu);
-          } else {
-            //check if user is admin
-            const user = getUser(
+        collector.on("collect", async (interaction) => {
+          if (interaction.customId === "cancel") {
+            await reply.delete();
+            collector.stop();
+            return;
+          } else if (interaction.customId === "status") {
+            await activateCPU(
               interaction,
-              "hosts",
-              interaction.user.username
+              interaction.message.embeds[0].data.title
             );
-            if (user.admin) {
+            const cpu = await getUser(
+              interaction,
+              "cpu-tributes",
+              interaction.message.embeds[0].data.title
+            );
+
+            const embed = await generateCPUEmbed(cpu, cpuList);
+            await interaction.deferUpdate();
+            await interaction.editReply({
+              embeds: [embed.cpuEmbed],
+              components: embed.components,
+              files: [embed.attachment],
+            });
+          } else if (interaction.customId === "remove-cpu") {
+            const cpu = await getUser(
+              interaction,
+              "cpu-tributes",
+              interaction.message.embeds[0].data.title
+            );
+            if (cpu.creator === interaction.user.username) {
+              //delete cpu
               removeCPU(interaction, cpu);
             } else {
+              //check if user is admin
+              const user = getUser(
+                interaction,
+                "hosts",
+                interaction.user.username
+              );
+              if (user.admin) {
+                removeCPU(interaction, cpu);
+              } else {
+                await interaction.deferUpdate();
+                interaction.followUp("You cannot delete another users CPU");
+              }
+            }
+          } else {
+            try {
+              const cpu = await getUser(
+                interaction,
+                "cpu-tributes",
+                interaction.values[0]
+              );
+              const embed = await generateCPUEmbed(cpu, cpuList);
               await interaction.deferUpdate();
-              interaction.followUp("You cannot delete another users CPU");
+              await interaction.editReply({
+                embeds: [embed.cpuEmbed],
+                components: embed.components,
+                files: [embed.attachment],
+              });
+            } catch (error) {
+              console.log(error);
             }
           }
-        } else {
-          const cpu = await getUser(
-            interaction,
-            "cpu-tributes",
-            interaction.values[0]
-          );
-          const embed = await generateCPUEmbed(cpu, cpuList);
-          await interaction.deferUpdate();
-          await interaction.editReply({
-            embeds: [embed.cpuEmbed],
-            components: embed.components,
-            files: [embed.attachment],
-          });
-        }
-      });
+        });
+      } catch (error) {
+        console.log(error);
+      }
     }
   },
 };
@@ -301,15 +307,12 @@ async function generateCPUEmbed(cpu, cpuList) {
 
   components.push(selectCpuRow, buttonRow);
 
-  console.log(cpuEmbed.data);
-
   return { cpuEmbed, components, attachment };
 }
 
 async function removeCPU(interaction, cpu) {
   await deleteCPU(interaction, "cpu-tributes", cpu);
   const cpuList = await getEnrolled(interaction, "cpu-tributes");
-  await interaction.deferUpdate();
   if (!cpuList.length) return interaction.editReply("There are no cpu's");
 
   const embed = await generateCPUEmbed(cpuList[0], cpuList);

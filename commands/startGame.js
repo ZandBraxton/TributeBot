@@ -24,7 +24,6 @@ module.exports = {
   async execute(interaction, client) {
     await interaction.deferReply();
     const result = await checkGameRunning(interaction);
-    console.log(result);
     if (result && result.gameRunning === true) {
       const row = new ActionRowBuilder().addComponents(
         buttons.newGame,
@@ -55,13 +54,7 @@ module.exports = {
         "cpu-tributes",
         interaction.user.username
       );
-      await CPUdata.map((cpu) => {
-        if (cpu.active === true) {
-          data.push(cpu);
-        }
-      });
-
-      console.log(data);
+      await CPUdata.map((cpu) => data.push(cpu));
 
       if (!data) return interaction.editReply("Error setting up game!");
 

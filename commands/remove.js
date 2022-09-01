@@ -8,7 +8,7 @@ module.exports = {
     .addUserOption((option) =>
       option.setName("user").setDescription("Select a user")
     ),
-  async execute(interaction, db) {
+  async execute(interaction) {
     const user = await interaction.options.getUser("user");
     if (!user) return interaction.reply("You must specify a user!");
 
