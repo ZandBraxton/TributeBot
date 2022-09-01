@@ -12,7 +12,6 @@ module.exports = {
     .setDescription("View list of Admins and Hosts"),
   async execute(interaction) {
     const result = await getHosts(interaction, "hosts");
-    console.log(result);
     const admins = [];
     const hosts = [];
 
