@@ -65,6 +65,7 @@ async function setupGame(interaction, gameState) {
     dayPassed: false,
     nightPassed: false,
     bloodBathPassed: false,
+    feastPassed: false,
     title: "",
     desc: "",
     i: 0,
@@ -155,7 +156,7 @@ async function startTurn(interaction, gameState) {
     game.roundsSinceEvent++;
   }
   let currentEvent;
-
+  console.log(getRandomIntInclusive(1, 20));
   let deathChance = getRandomIntInclusive(2, 4) + game.roundsWithoutDeath;
   let eventType = false;
 
@@ -166,23 +167,25 @@ async function startTurn(interaction, gameState) {
     deathChance += 2;
   } else if (
     !game.dayPassed &&
-    getRandomIntInclusive(0, 100) < getFeastChance(game.roundsSinceEvent)
+    getRandomIntInclusive(0, 100) < getFeastChance(game.roundsSinceEvent) &&
+    game.feastPassed === false
   ) {
     //feast
     eventType = true;
     currentEvent = events[Round.FEAST];
     game.roundsSinceEvent = 0;
+    game.feastPassed = true;
     deathChance += 2;
   } else if (game.roundsSinceEvent > 0 && getRandomIntInclusive(1, 20) === 1) {
     //arena event
-    eventType = "arena";
+    eventType = true;
 
     currentEvent =
       events[Round.ARENA][
         getRandomIntInclusive(0, events[Round.ARENA].length - 1)
       ];
     game.roundsSinceEvent = 0;
-    deathChance += 2;
+    deathChance += 1;
   } else if (!game.dayPassed) {
     //day
     currentEvent = events[Round.DAY];

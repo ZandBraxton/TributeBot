@@ -2441,7 +2441,7 @@
   },
   "arena": [
     {
-      "title": "Arena Event: Wolf Mutts",
+      "title": "Event: Wolf Mutts",
       "description": "Wolf mutts are let loose in the arena.",
       "nonfatal": [
         {
@@ -2485,7 +2485,7 @@
       ]
     },
     {
-      "title": "Arena Event: Acid Rain",
+      "title": "Event: Acid Rain",
       "description": "Acidic rain pours down on the arena.",
       "nonfatal": [
         {
@@ -2529,7 +2529,7 @@
       ]
     },
     {
-      "title": "Arena Event: Hurricane",
+      "title": "Event: Hurricane",
       "description": "A monstrous hurricane wreaks havoc on the arena.",
       "nonfatal": [
         {
@@ -2573,7 +2573,7 @@
       ]
     },
     {
-      "title": "Arena Event: Tracker Jacker Swarm",
+      "title": "Event: Tracker Jacker Swarm",
       "description": "A swarm of tracker jackers invades the arena.",
       "nonfatal": [
         {
@@ -2617,7 +2617,7 @@
       ]
     },
     {
-      "title": "Arena Event: Tsunami",
+      "title": "Event: Tsunami",
       "description": "A tsunami rolls into the arena.",
       "nonfatal": [
         {
@@ -2661,7 +2661,7 @@
       ]
     },
     {
-      "title": "Arena Event: Fire",
+      "title": "Event: Fire",
       "description": "A fire spreads throughout the arena.",
       "nonfatal": [
         {
@@ -2705,7 +2705,7 @@
       ]
     },
     {
-      "title": "Arena Event: Border Shrink",
+      "title": "Event: Border Shrink",
       "description": "The arena's border begins to rapidly contract.",
       "nonfatal": [
         {
@@ -2749,7 +2749,7 @@
       ]
     },
     {
-      "title": "Arena Event: Monkey Mutts",
+      "title": "Event: Monkey Mutts",
       "description": "Monkey mutts fill the arena.",
       "nonfatal": [
         {
@@ -2793,7 +2793,7 @@
       ]
     },
     {
-      "title": "Arena Event: Carnivorous Squirrels",
+      "title": "Event: Carnivorous Squirrels",
       "description": "Carnivorous squirrels start attacking the tributes.",
       "nonfatal": [
         {
@@ -2837,7 +2837,7 @@
       ]
     },
     {
-      "title": "Arena Event: Volcano",
+      "title": "Event: Volcano",
       "description": "A volcano erupts near the center of the arena.",
       "nonfatal": [
         {
@@ -2881,7 +2881,7 @@
       ]
     },
     {
-      "title": "Arena Event: Total Darkness",
+      "title": "Event: Total Darkness",
       "description": "The arena turns pitch black and no one can see a thing.",
       "nonfatal": [
         {
@@ -2925,7 +2925,7 @@
       ]
     },
     {
-      "title": "Arena Event: The Fucking Ants",
+      "title": "Event: The Fucking Ants",
       "description": "They're back",
       "nonfatal": [
         {
