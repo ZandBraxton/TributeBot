@@ -6,6 +6,9 @@ const admin =
   "https://cdn.discordapp.com/attachments/967172279807143946/1014682048327340032/adminrules.png";
 
 const commands =
+  "https://cdn.discordapp.com/attachments/967172279807143946/1017931037466173440/tributebotCommands.png";
+
+const hostCommands =
   "https://cdn.discordapp.com/attachments/967172279807143946/1017892094813151322/tributebotCommands.png";
 
 const gameControl =
@@ -21,7 +24,8 @@ module.exports = {
         .setDescription("Which info do you want to see?")
         .setRequired(true)
         .addChoices(
-          { name: "Commands", value: "command" },
+          { name: "General Commands", value: "command" },
+          { name: "Host Commands", value: "host" },
           { name: "Admin Cheatsheet", value: "admin" },
           { name: "Game Control", value: "control" }
         )
@@ -34,8 +38,11 @@ module.exports = {
       title = "Admin Cheatsheet";
       img = admin;
     } else if (type === "command") {
-      title = "Commands";
+      title = "General Commands";
       img = commands;
+    } else if (type === "host") {
+      title = "Host Commands";
+      img = hostCommands;
     } else {
       title = "Game Control";
       img = gameControl;

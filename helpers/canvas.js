@@ -329,7 +329,6 @@ async function generateWinnerImage(tributeData, command) {
   const canvas = createCanvas(canvasWidth, canvasHeight);
   const ctx = canvas.getContext("2d");
   const headerText = [];
-  console.log(command);
 
   if (command === undefined || !command) {
     headerText.push(tributeData.length === 1 ? "The Winner" : "The Winners");
