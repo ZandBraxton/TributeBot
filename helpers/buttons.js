@@ -31,6 +31,15 @@ const nextButton = new ButtonBuilder()
   .setLabel("Next")
   .setStyle(ButtonStyle.Success);
 
+const skipAll = new ButtonBuilder()
+  .setCustomId("skip")
+  .setLabel("Skip All")
+  .setStyle(ButtonStyle.Success);
+const showSkip = new ButtonBuilder()
+  .setCustomId("showskip")
+  .setLabel("Continue")
+  .setStyle(ButtonStyle.Success);
+
 const deadButton = new ButtonBuilder()
   .setCustomId("dead")
   .setLabel("Show Fallen Tributes")
@@ -73,6 +82,8 @@ module.exports = {
   startButton,
   nextDayButton,
   nextButton,
+  skipAll,
+  showSkip,
   deadButton,
   noDeathButton,
   randomButton,

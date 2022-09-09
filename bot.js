@@ -71,7 +71,9 @@ client.on("interactionCreate", async (interaction) => {
     if (
       interaction.commandName === "tributes" ||
       interaction.commandName === "join-tribute" ||
-      interaction.commandName === "leave-tribute"
+      interaction.commandName === "leave-tribute" ||
+      interaction.commandName === "me" ||
+      interaction.commandName === "district"
     ) {
       let choices = [];
       const focusedOption = interaction.options.getFocused(true);
@@ -91,7 +93,15 @@ client.on("interactionCreate", async (interaction) => {
   }
   if (interaction.type === InteractionType.ModalSubmit) {
     try {
-      await submitBet(interaction);
+      const scenario = interaction.fields.getTextInputValue("scenario");
+      const me = await client.users.fetch("307679791337963520");
+      await me.send(
+        `User ${interaction.customId} has suggested an event\nDetails:\n${scenario}\n`
+      );
+      await interaction.reply({
+        content: "Your suggestion was successfully submitted!",
+        ephemeral: true,
+      });
     } catch (error) {
       await interaction.reply({
         content: "Something went wrong!",

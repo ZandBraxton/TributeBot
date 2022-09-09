@@ -33,6 +33,7 @@ module.exports = {
         content:
           "You still have an active game! Would you like to start a new one?",
         components: [row],
+        ephemeral: true,
       });
 
       await createNewGameCollector(interaction);

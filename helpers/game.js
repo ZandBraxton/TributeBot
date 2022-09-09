@@ -225,6 +225,8 @@ function eventTrigger(
   embedResultsText
 ) {
   const tributes = new Set(tributeData);
+  let fatal = 0;
+  let nonfatal = 0;
 
   for (const tribute of tributes) {
     if (!tributes.has(tribute)) continue;
@@ -233,18 +235,22 @@ function eventTrigger(
 
     if (die < deathChance && tributes.size > 1) {
       die = "fatal";
+      fatal++;
     } else {
       die = "nonfatal";
+      nonfatal++;
     }
 
     const filteredEvents = events[die].filter(
       (event) => event.tributes <= tributes.size && event.deaths < tributes.size
     );
+
     const event =
       filteredEvents[Math.floor(Math.random() * filteredEvents.length)];
 
     tributes.delete(tribute);
 
+    //solo event, if dead
     if (event.tributes === 1) {
       if (event.deaths.length === 1) {
         deaths.push(tribute);
@@ -252,20 +258,27 @@ function eventTrigger(
         tributes.delete(tribute);
       }
 
-      results.push(parseEvent(event.text, [tribute], false));
+      results.push({
+        event: parseEvent(event.text, [tribute], false),
+        type: die,
+        tributes: [tribute],
+      });
       embedResultsText.push(parseEvent(event.text, [tribute], true));
       avatars.push([tribute.avatar]);
     } else {
       const currTribute = [tribute];
 
+      //if they were the killer
       if (event.killers.includes(1)) tribute.kills++;
 
+      //if they died
       if (event.deaths.includes(1)) {
         deaths.push(tribute);
         tribute.alive = false;
         tributes.delete(tribute);
       }
 
+      //get random killer/death
       for (let i = 2; i <= event.tributes; i++) {
         const tributesArray = Array.from(tributes);
         const randomTribute =
@@ -283,7 +296,11 @@ function eventTrigger(
         tributes.delete(randomTribute);
       }
 
-      results.push(parseEvent(event.text, currTribute));
+      results.push({
+        event: parseEvent(event.text, currTribute),
+        type: die,
+        tributes: currTribute,
+      });
       embedResultsText.push(parseEvent(event.text, currTribute, true));
       avatars.push(currTribute.map((trib) => trib.avatar));
     }

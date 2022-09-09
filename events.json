@@ -192,7 +192,7 @@
         "killers": [1]
       },
       {
-        "text": "(Player1) accidently steps on a landmine.",
+        "text": "(Player1) accidentally steps on a landmine.",
         "tributes": 1,
         "deaths": [1],
         "killers": []
@@ -546,7 +546,7 @@
         "killers": []
       },
       {
-        "text": "(Player1) camouflauges themself in the bushes.",
+        "text": "(Player1) camouflages themself in the bushes.",
         "tributes": 1,
         "deaths": [],
         "killers": []
@@ -2018,7 +2018,7 @@
   },
   "feast": {
     "title": "The Feast",
-    "description": "The Cornucopia is replenished with food, supplies, weapons, and memoirs from the tributes' famalies.",
+    "description": "The Cornucopia is replenished with food, supplies, weapons, and memoirs from the tributes' families.",
 
     "nonfatal": [
       {

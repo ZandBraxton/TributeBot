@@ -205,6 +205,56 @@ async function generateEventImage(eventText, resultsText, avatarArray) {
   return canvas;
 }
 
+async function generateSkippedTributes(tributeData, headerText) {
+  const verticalAvatarCount = Math.min(tributeData.length, 6);
+  const horitzontalAvatarCount = Math.ceil(tributeData.length / 6);
+
+  const canvasWidth =
+    (avatarSize + avatarSpacingX) * verticalAvatarCount -
+    avatarSpacingX +
+    avatarPaddingX * 2;
+  const canvasHeight =
+    horitzontalAvatarCount * avatarSpacingY +
+    horitzontalAvatarCount * avatarSize -
+    avatarSpacingY +
+    avatarPaddingY * 2 -
+    100;
+
+  const canvas = createCanvas(canvasWidth, canvasHeight);
+  const ctx = canvas.getContext("2d");
+
+  drawBackground(ctx, bgColor);
+  drawHeaderText(ctx, [headerText], "skipped");
+
+  ctx.strokeStyle = "#000000";
+
+  let destinationX = avatarPaddingX;
+  let destinationY = avatarPaddingY;
+
+  for (let i = 0; i < tributeData.length; i++) {
+    const tributeImage = await loadImage(tributeData[i].avatar);
+    ctx.drawImage(
+      tributeImage,
+      destinationX,
+      destinationY,
+      avatarSize,
+      avatarSize
+    );
+    ctx.strokeRect(destinationX, destinationY, avatarSize, avatarSize);
+
+    destinationX += avatarSize + avatarSpacingX;
+
+    if ((i + 1) % 6 === 0) {
+      destinationX = avatarPaddingX;
+      destinationY += avatarSize + avatarSpacingY;
+    }
+  }
+
+  drawTributeName(ctx, tributeData, 1);
+
+  return canvas;
+}
+
 async function generateFallenTributes(deaths, announcementCount, deathMessage) {
   const canvasHeight = 500;
 
@@ -272,28 +322,37 @@ async function generateFallenTributes(deaths, announcementCount, deathMessage) {
   return canvas;
 }
 
-async function generateWinnerImage(tributeData) {
+async function generateWinnerImage(tributeData, command) {
   const canvasWidth = 400 * tributeData.length;
   const canvasHeight = 400;
 
   const canvas = createCanvas(canvasWidth, canvasHeight);
   const ctx = canvas.getContext("2d");
+  const headerText = [];
+  console.log(command);
+
+  if (command === undefined || !command) {
+    headerText.push(tributeData.length === 1 ? "The Winner" : "The Winners");
+  }
+  headerText.push(`District ${tributeData[0].district}`);
 
   drawBackground(ctx, bgColor);
 
-  if (tributeData.length === 1) {
-    drawHeaderText(
-      ctx,
-      ["The Winner", `District ${tributeData[0].district}`],
-      "win"
-    );
-  } else {
-    drawHeaderText(
-      ctx,
-      ["The Winners", `District ${tributeData[0].district}`],
-      "win"
-    );
-  }
+  drawHeaderText(ctx, headerText, "win");
+
+  // if (tributeData.length === 1) {
+  //   drawHeaderText(
+  //     ctx,
+  //     ["The Winner", `District ${tributeData[0].district}`],
+  //     "win"
+  //   );
+  // } else {
+  //   drawHeaderText(
+  //     ctx,
+  //     ["The Winners", `District ${tributeData[0].district}`],
+  //     "win"
+  //   );
+  // }
 
   ctx.strokeStyle = "#000000";
 
@@ -314,6 +373,8 @@ async function generateWinnerImage(tributeData) {
       avatarSize
     );
     ctx.strokeRect(avatarXPosition, avatarYPosition, avatarSize, avatarSize);
+    if (!tributeData[i].alive)
+      greyScale(ctx, avatarXPosition, avatarYPosition, avatarSize);
     ctx.fillStyle = "#ffffff";
     ctx.font = "bold 20px arial";
 
@@ -590,8 +651,10 @@ function drawTributeName(ctx, tributeArray, districtSize) {
       spacingMultiplier = i % 2 === 0 ? 1 : 1.5;
     } else if (districtSize === 3) {
       spacingMultiplier = i % 3 === 2 ? 2 : 1;
-    } else {
+    } else if (districtSize === 4) {
       spacingMultiplier = i % 4 === 3 ? 2 : 1;
+    } else {
+      spacingMultiplier = 1;
     }
     textDestinationX += avatarSize + avatarSpacingX * spacingMultiplier;
 
@@ -626,4 +689,5 @@ module.exports = {
   generateEventImage,
   generateFallenTributes,
   generateWinnerImage,
+  generateSkippedTributes,
 };

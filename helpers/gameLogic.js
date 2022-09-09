@@ -3,6 +3,7 @@ const {
   ActionRowBuilder,
   AttachmentBuilder,
   ButtonBuilder,
+  ButtonStyle,
   InteractionType,
 } = require("discord.js");
 
@@ -28,14 +29,13 @@ const {
 
 const canvasHelper = require("./canvas");
 const buttons = require("./buttons");
-const events = require("../events.json");
+const events = require("../newEvents.json");
 const Round = {
   BLOODBATH: "bloodbath",
   DAY: "day",
   NIGHT: "night",
   FEAST: "feast",
   ARENA: "arena",
-  FALLEN: "fallen",
 };
 
 async function setupGame(interaction, gameState) {
@@ -70,6 +70,8 @@ async function setupGame(interaction, gameState) {
     desc: "",
     i: 0,
     announcementCount: 1,
+    skippedDeaths: [],
+    skippedAlive: [],
     deaths: [],
     results: [],
     embedResultsText: [],
@@ -155,15 +157,15 @@ async function startTurn(interaction, gameState) {
     game.fallenPassed = false;
     game.roundsSinceEvent++;
   }
-  let currentEvent;
-  console.log(getRandomIntInclusive(1, 20));
+  let currentRound;
   let deathChance = getRandomIntInclusive(2, 4) + game.roundsWithoutDeath;
   let eventType = false;
 
   if (game.day === 1 && game.bloodBathPassed === false) {
     //bloodbath
     eventType = true;
-    currentEvent = events[Round.BLOODBATH];
+    currentRound = await concatEvents(Round.BLOODBATH);
+    // currentRound = events[Round.BLOODBATH];
     deathChance += 2;
   } else if (
     !game.dayPassed &&
@@ -172,7 +174,7 @@ async function startTurn(interaction, gameState) {
   ) {
     //feast
     eventType = true;
-    currentEvent = events[Round.FEAST];
+    currentRound = await concatEvents(Round.FEAST);
     game.roundsSinceEvent = 0;
     game.feastPassed = true;
     deathChance += 2;
@@ -180,7 +182,7 @@ async function startTurn(interaction, gameState) {
     //arena event
     eventType = true;
 
-    currentEvent =
+    currentRound =
       events[Round.ARENA][
         getRandomIntInclusive(0, events[Round.ARENA].length - 1)
       ];
@@ -188,27 +190,27 @@ async function startTurn(interaction, gameState) {
     deathChance += 1;
   } else if (!game.dayPassed) {
     //day
-    currentEvent = events[Round.DAY];
+    currentRound = await concatEvents(Round.DAY);
   } else {
     //night
-    currentEvent = events[Round.NIGHT];
+    currentRound = await concatEvents(Round.NIGHT);
   }
 
   // if (!game.bloodBath && game.sun)
   //   game.turn++;
 
-  game.title = currentEvent["title"];
-  game.desc = currentEvent["description"];
+  game.title = currentRound["title"];
+  game.desc = currentRound["description"];
 
   const remainingTributes = tributesLeftAlive(gameState.tributes);
-  // const currentEvent = game.bloodBath
+  // const currentRound = game.bloodBath
   //   ? bloodbath
   //   : game.sun
   //   ? day
   //   : night;
 
   eventTrigger(
-    currentEvent,
+    currentRound,
     remainingTributes,
     deathChance,
     game.avatars,
@@ -219,19 +221,21 @@ async function startTurn(interaction, gameState) {
 
   gameState.gameData[0] = game;
 
-  if (!eventType) {
-    await runTurn(interaction, gameState);
-  } else {
-    await runEvent(interaction, gameState);
-  }
+  await roundStart(interaction, gameState, remainingTributes.length);
 }
 
-async function runEvent(interaction, gameState) {
+async function roundStart(interaction, gameState, tributesLeft) {
   let game = gameState.gameData[0];
+  let title = game.title;
+  let desc = game.desc;
+  if (game.title === "Day" || game.title === "Night") {
+    title = `${game.title} ${game.day}`;
+    desc = `${tributesLeft} tributes remaining`;
+  }
   const hungerGamesEmbed = new EmbedBuilder()
-    .setTitle(game.title)
+    .setTitle(title)
     .setColor("#5d5050")
-    .setDescription(game.desc);
+    .setDescription(desc);
 
   const row = new ActionRowBuilder().addComponents(
     buttons.endButton,
@@ -242,7 +246,15 @@ async function runEvent(interaction, gameState) {
     embeds: [hungerGamesEmbed],
     components: [row],
   });
+  const gameMsg = await interaction.fetchReply();
+  const previewEmbed = await previewEvents(game);
+  const preview = await interaction.followUp({
+    embeds: [previewEmbed.embed],
+    components: previewEmbed.components,
+    ephemeral: true,
+  });
   createCollector(interaction, gameState);
+  createSkipCollector(interaction, preview, gameState, gameMsg);
 }
 
 async function runTurn(interaction, gameState) {
@@ -260,17 +272,17 @@ async function runTurn(interaction, gameState) {
 
   const eventImage = await canvasHelper.generateEventImage(
     eventText,
-    game.results[game.i],
+    game.results[game.i].event,
     game.avatars[game.i]
   );
 
   const eventAttachment = new AttachmentBuilder(eventImage.toBuffer(), {
-    name: "currentEvent.png",
+    name: "currentRound.png",
   });
 
-  const names = getNames(game.results[game.i]);
+  const names = getNames(game.results[game.i].event);
 
-  hungerGamesEmbed.setImage("attachment://currentEvent.png");
+  hungerGamesEmbed.setImage("attachment://currentRound.png");
   hungerGamesEmbed.setFooter({
     text: (await names).join(", "),
   });
@@ -280,21 +292,37 @@ async function runTurn(interaction, gameState) {
   gameState.gameData[0] = game;
 
   if (gameState.gameData[0].i === gameState.gameData[0].results.length) {
-    const row2 = new ActionRowBuilder().addComponents(
-      buttons.endButton,
-      buttons.deadButton
-    );
+    const components = [];
+    if (game.skippedDeaths.length || game.skippedAlive.length) {
+      const row = new ActionRowBuilder().addComponents(
+        buttons.endButton,
+        buttons.showSkip
+      );
+      components.push(row);
+      // });
+    } else {
+      const row = new ActionRowBuilder().addComponents(
+        buttons.endButton,
+        buttons.deadButton
+      );
 
-    const row3 = new ActionRowBuilder().addComponents(
-      buttons.endButton,
-      buttons.noDeathButton
-    );
+      const row2 = new ActionRowBuilder().addComponents(
+        buttons.endButton,
+        buttons.noDeathButton
+      );
+      if (gameState.gameData[0].deaths.length) {
+        components.push(row);
+      } else {
+        components.push(row2);
+      }
+    }
 
     await interaction.editReply({
       embeds: [hungerGamesEmbed],
       files: [eventAttachment],
-      components: gameState.gameData[0].deaths.length ? [row2] : [row3],
+      components: components,
     });
+
     createCollector(interaction, gameState);
   } else {
     await interaction.editReply({
@@ -302,8 +330,149 @@ async function runTurn(interaction, gameState) {
       files: [eventAttachment],
       components: [row],
     });
+    const gameMsg = await interaction.fetchReply();
+    const previewEmbed = await previewEvents(game);
+    const preview = await interaction.followUp({
+      embeds: [previewEmbed.embed],
+      components: previewEmbed.components,
+      ephemeral: true,
+    });
     createCollector(interaction, gameState);
+    createSkipCollector(interaction, preview, gameState, gameMsg);
   }
+}
+
+async function previewEvents(game) {
+  const embed = new EmbedBuilder()
+    .setColor("#0099ff")
+    .setTitle(`Next Events - ${game.results.length - game.i} left`);
+  const components = [];
+  const row = new ActionRowBuilder();
+  const row2 = new ActionRowBuilder();
+  //check how many events are left
+  let eventsLeft = game.results.length - game.i;
+  if (eventsLeft > 5) {
+    eventsLeft = 5;
+
+    //row2 is next batch
+    row2.addComponents(buttons.skipAll);
+  } else {
+    //row2 is skip to dead
+    row2.addComponents(buttons.showSkip);
+  }
+  for (let i = 0; i < eventsLeft; i++) {
+    embed.addFields({
+      name: `Event ${i + 1} - ${game.results[game.i + i].type}`,
+      value: game.results[game.i + i].event,
+    });
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${i}`)
+        .setLabel(`${i + 1}`)
+        .setStyle(
+          game.results[game.i + i].type === "fatal"
+            ? ButtonStyle.Danger
+            : ButtonStyle.Secondary
+        )
+    );
+  }
+
+  components.push(row, row2);
+
+  return { embed, components };
+}
+
+async function generateSkippedTributes(gameRunner, tributes, headerText) {
+  const embed = new EmbedBuilder()
+    .setTitle(`${gameRunner}'s Game - Offscreen`)
+    .setImage("attachment://skippedPage.png")
+    .setColor("#5d5050");
+  const skipEvents = events["skipped"][headerText];
+
+  const event = skipEvents[Math.floor(Math.random() * skipEvents.length)];
+
+  const canvas = await canvasHelper.generateSkippedTributes(
+    tributes,
+    event.text
+  );
+
+  const attachment = new AttachmentBuilder(canvas.toBuffer(), {
+    name: "skippedPage.png",
+  });
+
+  return { embed, attachment };
+}
+
+async function showSkippedTributes(interaction, gameState) {
+  let game = gameState.gameData[0];
+  const results = [];
+  const components = [];
+  if (game.skippedDeaths.length) {
+    //show skipped deaths
+    const deadTributes = await generateSkippedTributes(
+      game.gameRunner,
+      game.skippedDeaths,
+      "dead"
+    );
+    results.push(deadTributes);
+  }
+
+  if (game.skippedAlive.length) {
+    //show alive tributes
+    const aliveTributes = await generateSkippedTributes(
+      game.gameRunner,
+      game.skippedAlive,
+      "alive"
+    );
+
+    results.push(aliveTributes);
+    // let t = game.skippedAlive.map((t) => t.username);
+    // const embed = new EmbedBuilder()
+    //   .setColor("#0099ff")
+    //   .setTitle(`${game.gameRunner}'s Game - Offscreen`)
+    //   .setDescription("alive")
+    //   .addFields({
+    //     name: "Tributes",
+    //     value: t.join(", "),
+    //   });
+
+    // results.push({ embed: embed, attachment: null });
+  }
+
+  for (let i = 0; i < results.length; i++) {
+    if (i === 0) {
+      await interaction.editReply({
+        embeds: [results[i].embed],
+        files: [results[i].attachment],
+      });
+    } else {
+      await interaction.followUp({
+        embeds: [results[i].embed],
+        files: results[i].attachment !== null ? [results[i].attachment] : [],
+      });
+    }
+  }
+
+  const row = new ActionRowBuilder().addComponents(
+    buttons.endButton,
+    buttons.deadButton
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    buttons.endButton,
+    buttons.noDeathButton
+  );
+  if (game.deaths.length) {
+    components.push(row);
+  } else {
+    components.push(row2);
+  }
+
+  const selection = await interaction.followUp({
+    content: ".",
+    components: components,
+  });
+  createCollector(interaction, gameState, selection);
 }
 
 async function showFallenTributes(interaction, gameState) {
@@ -330,7 +499,7 @@ async function showFallenTributes(interaction, gameState) {
 
     const row = new ActionRowBuilder().addComponents(
       buttons.endButton,
-      buttons.startButton
+      buttons.nextDayButton
     );
 
     const deadTributesEmbed = new EmbedBuilder()
@@ -414,6 +583,8 @@ async function refresh(game, fallen) {
 
   game.deaths = [];
   game.results = [];
+  game.skippedAlive = [];
+  game.skippedDeaths = [];
   game.embedResultsText = [];
   game.avatars = [];
   game.i = 0;
@@ -425,7 +596,7 @@ async function refresh(game, fallen) {
   }
 }
 
-async function collectorSwitch(interaction, gameState) {
+async function collectorSwitch(interaction, gameState, gameMsg) {
   if (interaction.customId.substring(0, 6) === "random") {
     //BETTING
     // await interaction.channel.send("Bets have refreshed!");
@@ -448,6 +619,9 @@ async function collectorSwitch(interaction, gameState) {
       await runTurn(interaction, gameState);
     } else if (interaction.customId.substring(0, 4) === "dead") {
       await showFallenTributes(interaction, gameState);
+    } else {
+      //skip/continue
+      await showSkippedTributes(interaction, gameState);
     }
     await interaction.message.edit({ components: [] });
   }
@@ -486,8 +660,63 @@ async function createEndCollector(interaction, gameState, gameMsg) {
   });
 }
 
-async function createCollector(interaction, gameState) {
-  const gameMsg = await interaction.fetchReply();
+async function createSkipCollector(interaction, preview, gameState, gameMsg) {
+  const filter = (i) => {
+    return i.user.id === interaction.user.id;
+  };
+  const collector = await preview.createMessageComponentCollector({
+    filter,
+  });
+
+  collector.on("collect", async (interaction) => {
+    try {
+      if (interaction.customId === "skip") {
+        await interaction.deferUpdate();
+        await skipTributes(gameState.gameData[0], gameState.gameData[0].i + 5);
+
+        const previewEmbed = await previewEvents(gameState.gameData[0]);
+        interaction.editReply({
+          embeds: [previewEmbed.embed],
+          components: previewEmbed.components,
+          ephemeral: true,
+        });
+      } else {
+        await interaction.deferReply();
+        if (interaction.customId === "showskip") {
+          let n =
+            gameState.gameData[0].results.length - gameState.gameData[0].i;
+          await skipTributes(
+            gameState.gameData[0],
+            n + gameState.gameData[0].i
+          );
+          //show skipped
+          await showSkippedTributes(interaction, gameState);
+        } else {
+          let n = parseInt(interaction.customId);
+          await skipTributes(
+            gameState.gameData[0],
+            n + gameState.gameData[0].i
+          );
+          await runTurn(interaction, gameState);
+        }
+        await gameMsg.edit({ components: [] });
+        collector.stop();
+        return;
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  });
+}
+
+async function createCollector(interaction, gameState, selection) {
+  let gameMsg;
+  if (!selection) {
+    gameMsg = await interaction.fetchReply();
+  } else {
+    gameMsg = selection;
+  }
+
   const filter = (i) => {
     return i.user.id === interaction.user.id;
   };
@@ -495,6 +724,17 @@ async function createCollector(interaction, gameState) {
   const collector = await gameMsg.createMessageComponentCollector({
     filter,
   });
+
+  // const filter = (i) => {
+  //   return i.user.id === interaction.user.id;
+  // };
+  // const collector = await gameMsg.createMessageComponentCollector({
+  //   filter,
+  // });
+
+  // const collector = await gameMsg.createMessageComponentCollector({
+  //   filter,
+  // });
 
   collector.on("collect", async (interaction) => {
     if (!(await IsGameRunning(interaction, gameMsg, collector))) {
@@ -530,7 +770,7 @@ async function createCollector(interaction, gameState) {
             gameState.districtSize = parseInt(interaction.values[0]);
           }
         }
-        collectorSwitch(interaction, gameState);
+        collectorSwitch(interaction, gameState, gameMsg);
         collector.stop();
       }
     } catch (error) {
@@ -562,6 +802,19 @@ async function createNewGameCollector(interaction) {
   });
 }
 
+async function skipTributes(game, n) {
+  while (game.i < n) {
+    game.results[game.i].tributes.map((tribute) => {
+      if (tribute.alive) {
+        game.skippedAlive.push(tribute);
+      } else {
+        game.skippedDeaths.push(tribute);
+      }
+    });
+    game.i++;
+  }
+}
+
 async function IsGameRunning(interaction, message, collector) {
   const IsRunning = await checkGameRunning(interaction);
   let bool = true;
@@ -582,6 +835,35 @@ async function IsGameRunning(interaction, message, collector) {
 
 function getFeastChance(RoundsSinceEvent) {
   return 100 * (Math.pow(RoundsSinceEvent, 2) / 55.0) + 9.0 / 55.0;
+}
+
+async function concatEvents(roundType) {
+  if (roundType === Round.BLOODBATH || roundType === Round.FEAST) {
+    //mix fatal
+    const fatalEvents = events[roundType]["fatal"].concat(
+      events["general"]["fatal"]
+    );
+    return {
+      title: events[roundType]["title"],
+      description: events[roundType]["description"],
+      nonfatal: events[roundType]["nonfatal"],
+      fatal: fatalEvents,
+    };
+  } else if (roundType === Round.DAY || roundType === Round.NIGHT) {
+    //mix both fatal and nonfatal
+    const nonfatalEvents = events[roundType]["nonfatal"].concat(
+      events["general"]["nonfatal"]
+    );
+    const fatalEvents = events[roundType]["fatal"].concat(
+      events["general"]["fatal"]
+    );
+    return {
+      title: events[roundType]["title"],
+      description: events[roundType]["description"],
+      nonfatal: nonfatalEvents,
+      fatal: fatalEvents,
+    };
+  }
 }
 
 module.exports = { createNewGameCollector, setupGame };
